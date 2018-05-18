@@ -1,5 +1,12 @@
 compiletoflash
 
+\ Clock control
+
+$056 constant DCOCTL
+$057 constant BCSCTL1
+$058 constant BCSCTL2
+$053 constant BCSCTL3
+
 $176 constant TA0CCR2
 $174 constant TA0CCR1
 $172 constant TA0CCR0
