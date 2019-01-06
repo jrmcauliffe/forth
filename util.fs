@@ -1,7 +1,6 @@
 compiletoflash
 
-\ Clock control
-
+\ Clock control registers
 $056 constant DCOCTL
 $057 constant BCSCTL1
 $058 constant BCSCTL2
@@ -27,40 +26,41 @@ $182 constant TA1CCTL0
 $180 constant TA1CTL
 $11E constant TA1IV
 
-: pin 1 swap lshift ;
+\ Project pin assignments
+: pin 1 swap lshift ; \ Create output pin mask(s)
+0 pin constant pgreen \ LED Green p2.0
+1 pin constant pblue  \ LED Blue  p2.1
+4 pin constant pred   \ LED Red   p2.4
+5 pin constant pbutton  \ Rotary encoder button  p1.5
+6 pin constant protary1 \ Rotary encoder switch1 p1.6
+7 pin constant protary2 \ Rotary encoder switch2 p1.7
+\ 2 pin constant ptap     \ Free pin to test timer etc p2.2
 
+0 variable buttonstate
 
-: percent $FFFF um* 100 um/mod swap drop ; 
-
-: red! TA1CCR0 ! ;
-: green! TA1CCR1 ! ;
-: blue! TA1CCR2 ! ;
-
-: .red TA1CCR0 @ 100 $FFFF u*/ 1 + . ;
-: .green TA1CCR1 @ 100 $FFFF u*/  1 + . ;
-: .blue TA1CCR2 @ 100 $FFFF u*/ 1 + . ;
-
-\ : pwm-init
-
-\  0 pin 1 pin or 5 pin or  p2sel cbis! \ Timer special function
-\  0 pin 1 pin or 5 pin or  p2dir cbis! \ Output 
-\  $0090 TA1CCTL0 ! \ toggle ie
-\  $0090 TA1CCTL1 ! \ toggle ie
-\  $0090 TA1CCTL2 ! \ toggle ie
-
-\  50 percent red!
-\  50 percent green!
-\  50 percent blue!
-
-\  $22 TA1CTL ! \ SMCLK/1, continuous mode, interrupt enabled 
-\ ;
-
-: simple \ Light red led on P1.0
-
-6 pin p1sel cbis! \ Timer special funciton
-6 pin p1dir cbis! \ Output
-
-$80 TA0CCTL1 ! \ toggle no interrupts
-$220 TA0CTL !
+: timerA0-irq-handler
+buttonstate @ shl pbutton p1in cbit@ 1 and or buttonstate !
+buttonstate @ $8000 = if ." pressed" cr then
 ;
+
+: myinit
+['] timerA0-irq-handler irq-timera0 ! \ register handler for interrupt
+$2D0 TA0CTL ! \ SMCLK/8 up mode interrupts not enabled<?>
+$90 TA0CCTL0 ! \ toggle mode / interrupts enabled
+$7D0 TA0CCR0 ! \ Set to 1Mhz / 2000 = 2ms
+pbutton p1ren cbis! \ Enable pullup on pushbutton
+\ ptap p2dir cbis! \ Enable test pin for output
+pgreen pred or pblue or p2dir cbis! \ Set red, green an blue pins to output
+pgreen pred or pblue or p2out cbic! \ Default to all off
+eint \ Enable interrupts
+;
+
+: alloff pgreen pred or pblue or p2out cbic! ;
+: red alloff pred p2out cbis! ;
+: green alloff pgreen p2out cbis! ;
+: blue alloff pblue p2out cbis! ;
+: purple alloff pblue pred or p2out cbis! ; 
+: turquoise alloff pblue pgreen or p2out cbis! ;
+: yellow alloff pred pgreen or p2out cbis! ;
+: white alloff pred pgreen or pblue or p2out cbis! ;
 compiletoram
