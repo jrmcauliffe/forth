@@ -36,31 +36,41 @@ $11E constant TA1IV
 7 pin constant protary2 \ Rotary encoder switch2 p1.7
 \ 2 pin constant ptap     \ Free pin to test timer etc p2.2
 
-0 variable buttonstate
+$FFFF variable buttonstate
+$0 variable rotary1state
+$0 variable rotary2state
+$0 variable colour
+: alloff pgreen pred or pblue or p2out cbic! ;
+
+: updatecolour 
+colour @ 1 and 0= if pred p2out cbic! else pred p2out cbis! then
+colour @ 2 and 0= if pgreen p2out cbic! else pgreen p2out cbis! then
+colour @ 4 and 0= if pblue p2out cbic! else pblue p2out cbis! then
+
+
+
+;
 
 : timerA0-irq-handler
+
 buttonstate @ shl pbutton p1in cbit@ 1 and or buttonstate !
-buttonstate @ $8000 = if ." pressed" cr then
+buttonstate @ $8000 = if alloff then
+rotary1state @ shl protary1 p1in cbit@ not  1 and or $FE00 or rotary1state !
+rotary1state @ $FF00 = rotary1state @ rotary2state @ > and if colour @ 1+ 7 mod 7 and colour ! updatecolour then
+rotary2state @ shl protary2 p1in cbit@ not  1 and or $FE00 or rotary2state !
+rotary2state @ $FF00 = rotary2state @ rotary1state @ > and if colour @ 1- 7 mod 7 and colour ! updatecolour then
 ;
 
 : myinit
 ['] timerA0-irq-handler irq-timera0 ! \ register handler for interrupt
 $2D0 TA0CTL ! \ SMCLK/8 up mode interrupts not enabled<?>
 $90 TA0CCTL0 ! \ toggle mode / interrupts enabled
-$7D0 TA0CCR0 ! \ Set to 1Mhz / 2000 = 2ms
-pbutton p1ren cbis! \ Enable pullup on pushbutton
+$1F4 TA0CCR0 ! \ Set to 1Mhz / 500 -> 0.5ms
+pbutton protary1 or protary2 or p1ren cbis! \ Enable pullup on pushbutton
 \ ptap p2dir cbis! \ Enable test pin for output
 pgreen pred or pblue or p2dir cbis! \ Set red, green an blue pins to output
 pgreen pred or pblue or p2out cbic! \ Default to all off
 eint \ Enable interrupts
 ;
 
-: alloff pgreen pred or pblue or p2out cbic! ;
-: red alloff pred p2out cbis! ;
-: green alloff pgreen p2out cbis! ;
-: blue alloff pblue p2out cbis! ;
-: purple alloff pblue pred or p2out cbis! ; 
-: turquoise alloff pblue pgreen or p2out cbis! ;
-: yellow alloff pred pgreen or p2out cbis! ;
-: white alloff pred pgreen or pblue or p2out cbis! ;
 compiletoram
