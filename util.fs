@@ -42,24 +42,33 @@ $0 variable rotary2state
 $0 variable colour
 : alloff pgreen pred or pblue or p2out cbic! ;
 
-: updatecolour 
-colour @ 1 and 0= if pred p2out cbic! else pred p2out cbis! then
-colour @ 2 and 0= if pgreen p2out cbic! else pgreen p2out cbis! then
-colour @ 4 and 0= if pblue p2out cbic! else pblue p2out cbis! then
+
+: setcolour if p2out cbis! else p2out cbic! then ;
 
 
-
+: updatecolour
+pred colour @ 1 and 0= setcolour
+pgreen colour @ 2 and 0= setcolour
+pblue colour @ 4 and 0= setcolour
 ;
+
+: button alloff ;
+: cw colour @ 1+ 7 mod 7 and colour ! updatecolour ;
+: ccw colour @ 1- 7 mod 7 and colour ! updatecolour ;
 
 : timerA0-irq-handler
-
 buttonstate @ shl pbutton p1in cbit@ 1 and or buttonstate !
-buttonstate @ $8000 = if alloff then
-rotary1state @ shl protary1 p1in cbit@ not  1 and or $FE00 or rotary1state !
-rotary1state @ $FF00 = rotary1state @ rotary2state @ > and if colour @ 1+ 7 mod 7 and colour ! updatecolour then
-rotary2state @ shl protary2 p1in cbit@ not  1 and or $FE00 or rotary2state !
-rotary2state @ $FF00 = rotary2state @ rotary1state @ > and if colour @ 1- 7 mod 7 and colour ! updatecolour then
+buttonstate @ $8000 = if button then
+rotary1state @ shl protary1 p1in cbit@ not 1 and or $FE00 or rotary1state !
+rotary1state @ $FF00 = rotary1state @ rotary2state @ > and if ccw then
+rotary2state @ shl protary2 p1in cbit@ not 1 and or $FE00 or rotary2state !
+rotary2state @ $FF00 = rotary2state @ rotary1state @ > and if cw then
 ;
+
+\ Second Timer_A is referred to as Timer_B in mecrisp interrupt table
+: timerB0-irq-handler
+;
+
 
 : myinit
 ['] timerA0-irq-handler irq-timera0 ! \ register handler for interrupt
