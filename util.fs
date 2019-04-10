@@ -1,3 +1,6 @@
+\ e4thcom command line buffer
+\index  rewind-to-basis
+
 compiletoflash
 
 \ Clock control registers
@@ -27,7 +30,7 @@ $180 constant TA1CTL
 $11E constant TA1IV
 
 \ Project pin assignments
-: pin 1 swap lshift ; \ Create output pin mask(s)
+: pin 1 swap lshift 1-foldable ; \ Create output pin mask(s)
 0 pin constant pgreen \ LED Green p2.0
 1 pin constant pblue  \ LED Blue  p2.1
 4 pin constant pred   \ LED Red   p2.4
