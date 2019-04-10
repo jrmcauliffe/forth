@@ -29,60 +29,95 @@ $182 constant TA1CCTL0
 $180 constant TA1CTL
 $11E constant TA1IV
 
-\ Project pin assignments
-: pin 1 swap lshift 1-foldable ; \ Create output pin mask(s)
-0 pin constant pgreen \ LED Green p2.0
-1 pin constant pblue  \ LED Blue  p2.1
-4 pin constant pred   \ LED Red   p2.4
-5 pin constant pbutton  \ Rotary encoder button  p1.5
-6 pin constant protary1 \ Rotary encoder switch1 p1.6
-7 pin constant protary2 \ Rotary encoder switch2 p1.7
-\ 2 pin constant ptap     \ Free pin to test timer etc p2.2
+\ Clock control alias for colour control
+TA1CCR1 constant green
+TA1CCR2 constant red
+TA0CCR1 constant blue
 
-$FFFF variable buttonstate
+\ Project pin assignments
+: pin 1 swap lshift ;   \ Create output pin mask(s)
+1 pin constant pgreen   \ LED Green p2.1
+6 pin constant pblue    \ LED Blue  p1.6
+4 pin constant pred     \ LED Red   p2.4
+7 pin constant pbutton  \ Rotary encoder button  p1.7
+4 pin constant protary1 \ Rotary encoder switch1 p1.4
+5 pin constant protary2 \ Rotary encoder switch2 p1.5
+2 pin constant ptap     \ Free pin to test timer etc p2.2
+$10 constant tick       \ 1 percent duty cycle time
+
+red variable currentcolour
+$0 variable buttonstate
 $0 variable rotary1state
 $0 variable rotary2state
-$0 variable colour
-: alloff pgreen pred or pblue or p2out cbic! ;
+true variable debugmode
 
+: us 0 ?do [ $3C00 , $3C00 , ] loop ;
+: ms 0 ?do 998 us loop ;
 
-: setcolour if p2out cbis! else p2out cbic! then ;
+: percent tick * ;
+: >dutycycle ! ;
+: <dutycycle @ ;
 
-
-: updatecolour
-pred colour @ 1 and 0= setcolour
-pgreen colour @ 2 and 0= setcolour
-pblue colour @ 4 and 0= setcolour
+: printstatus 
+  ."  ( r :" red <dutycycle tick / . 
+  ." g :" green <dutycycle tick / . 
+  ." b :" blue <dutycycle tick / . ." ) "
 ;
 
-: button alloff ;
-: cw colour @ 1+ 7 mod 7 and colour ! updatecolour ;
-: ccw colour @ 1- 7 mod 7 and colour ! updatecolour ;
+: nextcolour \ Cycle through the colours
+  currentcolour @ case
+    red of green currentcolour ! endof
+    green of blue currentcolour ! endof
+    blue of red currentcolour ! endof
+  endcase
+;
+
+: button
+  nextcolour
+  debugmode @ if ." button" printstatus cr then
+;
+
+: cw
+  currentcolour @ <dutycycle 1 percent + currentcolour @ >dutycycle
+  debugmode @ if ." cw    " printstatus cr then ;
+
+: ccw
+  currentcolour @ <dutycycle 1 percent - currentcolour @ >dutycycle
+  debugmode @ if ." ccw   " printstatus cr then
+;
 
 : timerA0-irq-handler
-buttonstate @ shl pbutton p1in cbit@ 1 and or buttonstate !
-buttonstate @ $8000 = if button then
-rotary1state @ shl protary1 p1in cbit@ not 1 and or $FE00 or rotary1state !
-rotary1state @ $FF00 = rotary1state @ rotary2state @ > and if ccw then
-rotary2state @ shl protary2 p1in cbit@ not 1 and or $FE00 or rotary2state !
-rotary2state @ $FF00 = rotary2state @ rotary1state @ > and if cw then
+  buttonstate @ shl pbutton p1in cbit@ 1 and or buttonstate !
+  buttonstate @ $8000 = if button then
+  rotary1state @ shl protary1 p1in cbit@ not 1 and or $FE00 or rotary1state !
+  rotary1state @ $FF00 = rotary1state @ rotary2state @ > and if cw then
+  rotary2state @ shl protary2 p1in cbit@ not 1 and or $FE00 or rotary2state !
+  rotary2state @ $FF00 = rotary2state @ rotary1state @ > and if ccw then
 ;
-
-\ Second Timer_A is referred to as Timer_B in mecrisp interrupt table
-: timerB0-irq-handler
-;
-
 
 : myinit
-['] timerA0-irq-handler irq-timera0 ! \ register handler for interrupt
-$2D0 TA0CTL ! \ SMCLK/8 up mode interrupts not enabled<?>
-$90 TA0CCTL0 ! \ toggle mode / interrupts enabled
-$1F4 TA0CCR0 ! \ Set to 1Mhz / 500 -> 0.5ms
-pbutton protary1 or protary2 or p1ren cbis! \ Enable pullup on pushbutton
-\ ptap p2dir cbis! \ Enable test pin for output
-pgreen pred or pblue or p2dir cbis! \ Set red, green an blue pins to output
-pgreen pred or pblue or p2out cbic! \ Default to all off
-eint \ Enable interrupts
+  ['] timerA0-irq-handler irq-timera0 ! \ register handler for interrupt
+  $2D0 TA0CTL ! \ SMCLK/8 up mode interrupts not enabled<?>
+  $90 TA0CCTL0 ! \ toggle mode / interrupts enabled
+  $1F4 TA0CCR0 ! \ Set to 1Mhz / 500 -> 0.5ms
+  $10E0 TA0CCTL1 ! \ CCI1B / set\reset mode / interrupts disabled
+
+  $2D0 TA1CTL ! \ SMCLK/8 up mode interrupts disabled
+  $60 TA1CCTL0 ! \ CCI0A / toggle mode / interrupts enabled
+  $E0 TA1CCTL1 ! \ CCI1A / set\reset mode / interrupts disabled
+  $E0 TA1CCTL2 ! \ CCI2A / set\reset mode / interrupts disabled
+  $1F4 TA1CCR0 ! \ Set to 1Mhz / 2500 -> 0.5ms
+
+  \ Set inital duty cycles
+  1 percent red >dutycycle
+  1 percent green >dutycycle
+  1 percent blue >dutycycle
+
+  pbutton protary1 or protary2 or p1ren cbis! \ Enable pullup on pushbuttons
+  pgreen pred or p2dir cbis! pblue p1dir cbis! \ Set red, green an blue pins to output
+  pgreen pred or p2sel cbis! pblue p1sel cbis! \ Set red, green an blue pins to special 
+
+  eint \ Enable interrupts
 ;
 
 compiletoram
