@@ -1,33 +1,36 @@
 \ e4thcom command line buffer
 \index  rewind-to-basis
 
+\ e4th load device specific constants
+\res  MCU: MSP430G2553
+
 compiletoflash
 
 \ Clock control registers
-$056 constant DCOCTL
-$057 constant BCSCTL1
-$058 constant BCSCTL2
-$053 constant BCSCTL3
-
-$176 constant TA0CCR2
-$174 constant TA0CCR1
-$172 constant TA0CCR0
-$170 constant TA0R
-$166 constant TA0CCTL2
-$164 constant TA0CCTL1
-$162 constant TA0CCTL0
-$160 constant TA0CTL
-$12E constant TA0IV
-
-$196 constant TA1CCR2
-$194 constant TA1CCR1
-$192 constant TA1CCR0
-$190 constant TA1R
-$186 constant TA1CCTL2
-$184 constant TA1CCTL1
-$182 constant TA1CCTL0
-$180 constant TA1CTL
-$11E constant TA1IV
+\ $056 constant DCOCTL
+\ $057 constant BCSCTL1
+\ $058 constant BCSCTL2
+\ $053 constant BCSCTL3
+\ 
+\ $176 constant TA0CCR2
+\ $174 constant TA0CCR1
+\ $172 constant TA0CCR0
+\ $170 constant TA0R
+\ $166 constant TA0CCTL2
+\ $164 constant TA0CCTL1
+\ $162 constant TA0CCTL0
+\ $160 constant TA0CTL
+\ $12E constant TA0IV
+\ 
+\ $196 constant TA1CCR2
+\ $194 constant TA1CCR1
+\ $192 constant TA1CCR0
+\ $190 constant TA1R
+\ $186 constant TA1CCTL2
+\ $184 constant TA1CCTL1
+\ $182 constant TA1CCTL0
+\ $180 constant TA1CTL
+\ $11E constant TA1IV
 
 \ Clock control alias for colour control
 TA1CCR1 constant green
@@ -35,7 +38,7 @@ TA1CCR2 constant red
 TA0CCR1 constant blue
 
 \ Project pin assignments
-: pin 1 swap lshift ;   \ Create output pin mask(s)
+: pin 1 swap lshift 1-foldable ;   \ Create output pin mask(s)
 1 pin constant pgreen   \ LED Green p2.1
 6 pin constant pblue    \ LED Blue  p1.6
 4 pin constant pred     \ LED Red   p2.4
