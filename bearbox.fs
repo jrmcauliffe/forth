@@ -122,7 +122,8 @@ true variable debugmode
 ;
 
 : init ( -- ) \ Launch program if no keypress after 2 secs
-  2000 ms key? if else myinit then
+  ." Press any key to prevent auto-launch..." cr
+  2000 ms key? if else ." Launching"  cr myinit then
 ; 
 
 compiletoram
