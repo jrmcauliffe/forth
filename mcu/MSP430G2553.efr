@@ -1,0 +1,351 @@
+\ MSP430G2553 Register Definitions                                    MM-141228
+\
+\ Not 100 % complete !!!!!!
+
+\ __SmartTerm asm definitions hex    MM-160728
+\ terminal xas definitions hex
+
+{ \ MM-150315
+: bits: ( "name" bm.lsb #bits -- )
+        ( +n -- bitmap )         \ execute time of name
+    create  1 swap lshift 1- ( max ) , ,
+    does> ( +n a -- bm )
+      dup >r @ ( max ) over < abort" argument out of range "
+      r> cell+ @ * ;
+}
+
+  01 equ BIT0
+  02 equ BIT1
+  04 equ BIT2
+  08 equ BIT3
+  10 equ BIT4
+  20 equ BIT5
+  40 equ BIT6
+  80 equ BIT7
+ 100 equ BIT8
+ 200 equ BIT9
+ 400 equ BIT10
+ 800 equ BIT11
+1000 equ BIT12
+2000 equ BIT13  
+4000 equ BIT14
+8000 equ BIT15
+
+002 equ SR  \ Status Register
+        BIT0 equ C
+        BIT1 equ Z
+        BIT2 equ N
+        BIT3 equ GIE
+        BIT4 equ CPUOFF
+        BIT5 equ OSCOFF
+        BIT6 equ SCG0
+        BIT7 equ SCG1
+        BIT8 equ V
+
+
+
+
+\ --- Special Function Registers:
+
+000 equ IE1 \ Interrupt Enable Register 1 ( 8 Bit )
+        BIT0 equ WDTIE
+        BIT1 equ OFIE
+        BIT4 equ NMIIE
+        BIT5 equ ACCVIE
+
+001 equ IE2 \ Interrupt Enable Register 2 ( 8 Bit )
+        BIT0 equ UCA0RXIE
+        BIT1 equ UCA0TXIE
+        BIT2 equ UCB0RXIE
+        BIT3 equ UCB0TXIE
+
+002 equ IFG1 \ Interrupt Flag Register 1 ( 8 Bit )
+        BIT0 equ WDTIFG
+        BIT1 equ OFIFG
+        BIT2 equ PORIFG
+        BIT3 equ RSTIFG
+        BIT4 equ NMIIGF
+
+003 equ IFG2 \ Interrupt Flag Register 2 ( 8 Bit )
+        BIT0 equ UCA0RXIFG
+        BIT1 equ UCA0TXIFG
+        BIT2 equ UCB0RXIFG
+        BIT3 equ UCB0TXIFG
+
+\ ---
+
+\ Port P1
+
+020 equ P1IN
+021 equ P1OUT
+022 equ P1DIR
+023 equ P1IFG
+024 equ P1IES
+025 equ P1IE
+026 equ P1SEL
+027 equ P1REN
+041 equ P1SEL2
+
+\ Port P2
+
+028 equ P2IN
+029 equ P2OUT
+02A equ P2DIR
+02B equ P2IFG
+02C equ P2IES
+02D equ P2IE
+02E equ P2SEL
+02F equ P2REN
+042 equ P2SEL2
+
+
+0120 equ WDTCTL \ Watchdog timer + control register (16)
+         BIT0 2 bits: WDTIS_
+         BIT2     equ WDTSSEL
+         BIT3     equ WDTCNTCL
+         BIT4     equ WDTTMSEL
+         BIT5     equ WDTNMI
+         BIT6     equ WDTNMIES
+         BIT7     equ WDTHOLD
+         BIT8 8 bits: WDTPW_
+
+
+\ --- Flash Memory Registers
+
+0128 equ FCTL1  \ Flash Memory Control Register 1  (16)
+       \ reserved  
+         BIT1 equ ERASE
+         BIT2 equ MERAS
+         BIT3 equ EEI
+      \  BIT4 equ EEIEX
+      \  reserved
+         BIT6 equ WRT
+         BIT7 equ BLKWRT
+         BIT8 8 bits: FRKEY_
+         BIT8 8 bits: FWKEY_
+
+
+012A equ FCTL2  \ Flash Memory Control Register 2  (16)
+         BIT0 6 bits: FN_
+         BIT6 2 bits: FSSEL_
+\        BIT8 8 bits: FWKEY_
+
+012C equ FCTL3  \ Flash Memory Control Register 3  (16)
+         BIT0 equ BUSY
+         BIT1 equ KEYV
+         BIT2 equ ACCVIFG
+         BIT3 equ WAIT
+         BIT4 equ LOCK
+         BIT5 equ EMEX
+         BIT6 equ LOCKA
+         BIT7 equ FAIL
+\        BIT8 8 bits: FWKEY_
+
+
+\ --- Timer0_A3 Registers
+
+0160 equ TA0CTL \ Timer0_A3 Control Register (16)
+         BIT0     equ TAIFG
+         BIT1     equ TAIE
+         BIT2     equ TACLR
+         \ unused
+         BIT4 2 bits: MC_
+         BIT6 2 bits: ID_
+         BIT8 2 bits: TASSEL_
+         \ unused
+
+0170 equ TA0R     \ Timer0_A3 Register, count of Timer_A  (16)
+
+0172 equ TA0CCR0  \ Timer0_A Capture/Compare Register 0  (16)
+0174 equ TA0CCR1  \ Timer0_A Capture/Compare Register 1  (16)
+0176 equ TA0CCR2  \ Timer0_A Capture/Compare Register 2  (16)
+
+0162 equ TA0CCTL0 \ Capture/Compare Control Register 0   (16)
+0164 equ TA0CCTL1 \ Capture/Compare Control Register 1   (16)
+0166 equ TA0CCTL2 \ Capture/Compare Control Register 2   (16)
+         BIT0      equ CCIFG
+         BIT1      equ COV
+         BIT2      equ OUT
+         BIT3      equ CCI
+         BIT4      equ CCIE
+         BIT5  3 bits: OUTMOD_
+         BIT8      equ CAP
+         \ unused
+         BIT10     equ SCCI
+         BIT11     equ SCS
+         BIT12 2 bits: CCIS_
+         BIT14 2 bits: CM_
+
+012E equ TA0IV     \ (ro)
+         BIT1 3 bits: TAIV_
+
+\ --- Timer1_A3 Registers
+
+0180 equ TA1CTL   \ Timer1_A3 Control Register (16)
+
+0190 equ TA1R     \ Timer1_A3 Register, count of Timer_A  (16)
+
+0192 equ TA1CCR0  \ Timer1_A Capture/Compare Register 0  (16)
+0194 equ TA1CCR1  \ Timer1_A Capture/Compare Register 1  (16)
+0196 equ TA1CCR2  \ Timer1_A Capture/Compare Register 2  (16)
+ 
+0182 equ TA1CCTL0 \ Capture/Compare Control Register 0   (16)
+0184 equ TA1CCTL1 \ Capture/Compare Control Register 1   (16)
+0186 equ TA1CCTL2 \ Capture/Compare Control Register 2   (16)
+
+011E equ TA1IV    \ (ro)
+
+\ ---
+
+
+
+\ --- ADC10 module (10-bit analog-to-digital converter)
+ 
+01B0 equ ADC10CTL0  \ ADC10 control register 0  (16)
+         BIT0      equ ADC10SC
+         BIT1      equ ECN
+         BIT2      equ ADC10IFG
+         BIT3      equ ADC10IE
+         BIT4      equ ADC10ON
+         BIT5      equ REFON
+         BIT6      equ REF2_5V
+         BIT7      equ MSC
+         BIT8      equ REFBURST
+         BIT9      equ REFOUT
+         BIT10     equ ADC10SR
+         BIT11 2 bits: ADC10SHT_
+         BIT13 3 bits: SREF_
+
+01B2 equ ADC10CTL1  \ ADC10 control register 1  (16)
+         BIT0      equ ADC10BUSY
+         BIT1  2 bits: CONSEQ_
+         BIT3  2 bits: ADC10SSEL_
+         BIT5  3 bits: ADC10DIV_
+         BIT8      equ ISSH
+         BIT9      equ ADC10DF
+         BIT10 2 bits: SHS_
+         BIT12 4 bits: INCH_
+
+01B4 equ ADC10MEM   \ ADC10 Conversion-Memory Register (w,ro)
+01BC equ ADC10SA    \ ADC10 Start Address Register for Data Transfer (16)
+ 048 equ ADC10DTC0  \ ADC10 Data Transfer Control Register 0
+ 049 equ ADC10DTC1  \ ADC10 Data Transfer Control Register 1
+ 04A equ ADC10AE0   \ ADC10 Analog (Input) Enable Control Register 0
+ 04B equ ADC10AE1   \ ADC10 Analog (Input) Enable Control Register 1
+
+\ ---
+
+
+\ Basic Clock Module+ Registers
+
+056 equ DCOCTL  \ DCO Control Register
+        BIT0 5 bits: MOD_
+        BIT5 3 bits: DCO_
+
+057 equ BCSCTL1  \ Basic Clock System Control Register 1
+        BIT0 4 bits: RSEL_
+        BIT4 2 bits: DIVA_
+        BIT6     equ XTS
+        BIT7     equ XT2OFF
+
+058 equ BCSCTL2  \ Basic Clock System Control Register 2
+        BIT0     equ DCOR
+        BIT1 2 bits: DIVS_
+        BIT3     equ SELS
+        BIT4 2 bits: DIVM_
+        BIT6 2 bits: SELM_
+
+053 equ BCSCTL3  \ Basic Clock System Control Register 3
+        BIT0     equ LFXT1OF
+        BIT1     equ XT2OF
+        BIT2 2 bits: XCAP_
+        BIT4 2 bits: LFXT1S_
+        BIT6 2 bits: XT2S_
+
+
+\ --- Comparator_A+
+
+059 equ CACTL1  \ Comparator_A+ Control Register 1
+        BIT0     equ CAIFG
+        BIT1     equ CAIE
+        BIT2     equ CAIES
+        BIT3     equ CAON
+        BIT4 2 bits: CAREF_
+        BIT6     equ CARSEL
+        BIT7     equ CAEX
+
+05A equ CACTL2  \ Comparator_A+ Control Register 2
+        BIT0 equ CAOUT
+        BIT1 equ CAF
+        BIT2 equ P2CA0
+        BIT3 equ P2CA1
+        BIT4 equ P2CA2
+        BIT5 equ P2CA3
+        BIT6 equ P2CA4
+        BIT7 equ CASHORT
+
+05B equ CAPD    \ Comparator_A+ port disable
+        BIT0 equ CAPD0
+        BIT1 equ CAPD1
+        BIT2 equ CAPD2
+        BIT3 equ CAPD3
+        BIT4 equ CAPD4
+        BIT5 equ CAPD5
+        BIT6 equ CAPD6
+        BIT7 equ CAPD7
+
+
+
+\ UCSI_A0  ??????????????????
+
+
+\ UCAxCTL0, USCI_Ax Control Register 0
+\ UCBxCTL0, USCI_Bx Control Register 0
+\ ------------------------------------
+068 equ UCB0CTL0
+        BIT0     equ UCSYNC
+        BIT1 2 bits: UCMODE_
+        BIT3     equ UCMST 
+        BIT5     equ UCMM    \ I2C
+        BIT5     equ UCMSB   \ SPI
+        BIT6     equ UCSLA10 \ I2C
+        BIT6     equ UCCKPL  \ SPI
+        BIT7     equ UCA10   \ I2C
+        BIT7     equ UCCKPH  \ SPI
+
+
+\ UCAxCTL1, USCI_Ax Control Register 1
+\ UCBxCTL1, USCI_Bx Control Register 1
+\ ------------------------------------
+069 equ UCB0CTL1
+        BIT0 equ UCSWRST
+        BIT1 equ UCTXSTT
+        BIT2 equ UCTXSTP
+        BIT3 equ UCTXNACK
+        BIT4 equ UCTR
+        \ unused
+        BIT6 2 bits: UCSSEL_
+
+
+06A equ UCB0BR0
+06B equ UCB0BR1
+
+06C equ UCB0I2CIE
+
+06D equ UCB0STAT  \ USCI_Bx Status Register
+
+        BIT3 equ UCNACKIFG
+        BIT4 equ UCBBUSY
+        BIT6 equ UCSCLLOW
+
+06E equ UCB0RXBUF
+06F equ UCB0TXBUF
+
+118 equ UCB0I2COA
+11A equ UCB0I2CSA
+
+\ -----------------------------------------------------------------------------
+\ Last Revision: MM-160728 new class prefix: __ 
+\                MM-150315 bits: moved to forth.lib
+
+
