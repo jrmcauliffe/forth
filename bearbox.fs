@@ -97,6 +97,13 @@ true variable debugmode
 ;
 
 : myinit
+  pgreen pred or p2dir cbis! pblue p1dir cbis! \ Set red, green an blue pins to output
+  \ Cycle through colours
+  pred p2out cbis! 500 ms pred p2out cbic!
+  pgreen p2out cbis! 500 ms pgreen p2out cbic!
+  pblue p1out cbis! 500 ms pblue p1out cbic! 500 ms
+  pgreen pred or p2sel cbis! pblue p1sel cbis! \ Set red, green an blue pins to special 
+
   ['] timerA0-irq-handler irq-timera0 ! \ register handler for interrupt
   $2D0 TA0CTL ! \ SMCLK/8 up mode interrupts not enabled<?>
   $90 TA0CCTL0 ! \ toggle mode / interrupts enabled
@@ -115,8 +122,6 @@ true variable debugmode
   1 percent blue >dutycycle
 
   pbutton protary1 or protary2 or p1ren cbis! \ Enable pullup on pushbuttons
-  pgreen pred or p2dir cbis! pblue p1dir cbis! \ Set red, green an blue pins to output
-  pgreen pred or p2sel cbis! pblue p1sel cbis! \ Set red, green an blue pins to special 
 
   eint \ Enable interrupts
 ;
