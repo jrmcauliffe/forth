@@ -1,34 +1,7 @@
-\ e4th load device specific constants
-\ res MCU: MSP430G2553
-\ res export TA1CCR1 TA1CCR2
-
 compiletoflash
 
-\ Clock control registers
-$056 constant DCOCTL
-$057 constant BCSCTL1
-$058 constant BCSCTL2
-$053 constant BCSCTL3
-
-$176 constant TA0CCR2
-$174 constant TA0CCR1
-$172 constant TA0CCR0
-$170 constant TA0R
-$166 constant TA0CCTL2
-$164 constant TA0CCTL1
-$162 constant TA0CCTL0
-$160 constant TA0CTL
-$12E constant TA0IV
-
-$196 constant TA1CCR2
-$194 constant TA1CCR1
-$192 constant TA1CCR0
-$190 constant TA1R
-$186 constant TA1CCTL2
-$184 constant TA1CCTL1
-$182 constant TA1CCTL0
-$180 constant TA1CTL
-$11E constant TA1IV
+#include pins
+#include ms
 
 \ Clock control alias for colour control
 TA1CCR1 constant green
@@ -51,9 +24,6 @@ $0 variable buttonstate
 $0 variable rotary1state
 $0 variable rotary2state
 true variable debugmode
-
-: us 0 ?do [ $3C00 , $3C00 , ] loop ;
-: ms 0 ?do 998 us loop ;
 
 : percent tick * ;
 
