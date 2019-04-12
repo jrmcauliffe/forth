@@ -56,6 +56,12 @@ true variable debugmode
 : ms 0 ?do 998 us loop ;
 
 : percent tick * ;
+
+: pin ( n : n ) \ pin between 0 and 100
+  dup 0 < if drop 0 then
+  dup 100 tick * > if drop 100 tick * then
+;
+
 : >dutycycle ! ;
 : <dutycycle @ ;
 
@@ -79,15 +85,15 @@ true variable debugmode
 ;
 
 : cw
-  currentcolour @ <dutycycle 1 percent + currentcolour @ >dutycycle
+  currentcolour @ <dutycycle 1 percent + pin currentcolour @ >dutycycle
   debugmode @ if ." cw    " printstatus cr then ;
 
 : ccw
-  currentcolour @ <dutycycle 1 percent - currentcolour @ >dutycycle
+  currentcolour @ <dutycycle 1 percent - pin currentcolour @ >dutycycle
   debugmode @ if ." ccw   " printstatus cr then
 ;
 
-: timerA0-irq-handler
+: timerA0-irq-handler \ rotary encoder debounce code
   buttonstate @ shl pbutton p1in cbit@ 1 and or buttonstate !
   buttonstate @ $8000 = if button then
   rotary1state @ shl protary1 p1in cbit@ not 1 and or $FE00 or rotary1state !
@@ -96,13 +102,17 @@ true variable debugmode
   rotary2state @ $FF00 = rotary2state @ rotary1state @ > and if ccw then
 ;
 
-: myinit
-  pgreen pred or p2dir cbis! pblue p1dir cbis! \ Set red, green an blue pins to output
-  \ Cycle through colours
+: colourflash \ Cycle through colours
   pred p2out cbis! 500 ms pred p2out cbic!
   pgreen p2out cbis! 500 ms pgreen p2out cbic!
   pblue p1out cbis! 500 ms pblue p1out cbic! 500 ms
+;
+
+: myinit
+  pgreen pred or p2dir cbis! pblue p1dir cbis! \ Set red, green an blue pins to output
+  colourflash \ Flash primary colours
   pgreen pred or p2sel cbis! pblue p1sel cbis! \ Set red, green an blue pins to special 
+  pbutton protary1 or protary2 or p1ren cbis! \ Enable pullup on pushbuttons
 
   ['] timerA0-irq-handler irq-timera0 ! \ register handler for interrupt
   $2D0 TA0CTL ! \ SMCLK/8 up mode interrupts not enabled<?>
@@ -120,8 +130,6 @@ true variable debugmode
   1 percent red >dutycycle
   1 percent green >dutycycle
   1 percent blue >dutycycle
-
-  pbutton protary1 or protary2 or p1ren cbis! \ Enable pullup on pushbuttons
 
   eint \ Enable interrupts
 ;
