@@ -55,21 +55,21 @@ true variable debugmode
 ;
 
 : cw
-  currentcolour @ <dutycycle 1 percent + pin currentcolour @ >dutycycle
+  currentcolour @ <dutycycle 2 percent + pin currentcolour @ >dutycycle
   debugmode @ if ." cw    " printstatus cr then ;
 
 : ccw
-  currentcolour @ <dutycycle 1 percent - pin currentcolour @ >dutycycle
+  currentcolour @ <dutycycle 2 percent - pin currentcolour @ >dutycycle
   debugmode @ if ." ccw   " printstatus cr then
 ;
 
 : timerA0-irq-handler \ rotary encoder debounce code
   buttonstate @ shl pbutton p1in cbit@ 1 and or buttonstate !
   buttonstate @ $8000 = if button then
-  rotary1state @ shl protary1 p1in cbit@ not 1 and or $FE00 or rotary1state !
-  rotary1state @ $FF00 = rotary1state @ rotary2state @ > and if cw then
-  rotary2state @ shl protary2 p1in cbit@ not 1 and or $FE00 or rotary2state !
-  rotary2state @ $FF00 = rotary2state @ rotary1state @ > and if ccw then
+  rotary1state @ shl protary1 p1in cbit@ not 1 and or $FF00 or rotary1state !
+  rotary1state @ $FF80 = rotary1state @ rotary2state @ > and if cw then
+  rotary2state @ shl protary2 p1in cbit@ not 1 and or $FF00 or rotary2state !
+  rotary2state @ $FF80 = rotary2state @ rotary1state @ > and if ccw then
 ;
 
 : colourflash \ Cycle through colours
