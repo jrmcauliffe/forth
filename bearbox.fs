@@ -17,7 +17,7 @@ TA0CCR1 constant blue
 4 pin constant protary1 \ Rotary encoder switch1 p1.4
 5 pin constant protary2 \ Rotary encoder switch2 p1.5
 2 pin constant ptap     \ Free pin to test timer etc p2.2
-5 constant tick       \ 1 percent duty cycle time
+160 constant tick       \ 1 percent duty cycle time
 
 red variable currentcolour
 $0 variable buttonstate
@@ -73,28 +73,29 @@ true variable debugmode
 ;
 
 : colourflash \ Cycle through colours
-  pred p2out cbis! 500 ms pred p2out cbic!
-  pgreen p2out cbis! 500 ms pgreen p2out cbic!
-  pblue p1out cbis! 500 ms pblue p1out cbic!
+  100 percent red >dutycycle 500 ms 0 percent red >dutycycle
+  100 percent green >dutycycle 500 ms 0 percent green >dutycycle
+  100 percent blue >dutycycle 500 ms 0 percent blue >dutycycle
 ;
 
 : myinit
   pgreen pred or p2dir cbis! pblue p1dir cbis! \ Set red, green an blue pins to output
-  colourflash \ Flash primary colours
   pgreen pred or p2sel cbis! pblue p1sel cbis! \ Set red, green an blue pins to special 
   pbutton protary1 or protary2 or p1ren cbis! \ Enable pullup on pushbuttons
 
   ['] timerA0-irq-handler irq-timera0 ! \ register handler for interrupt
-  $2D0 TA0CTL ! \ SMCLK/8 up mode interrupts not enabled<?>
-  $90 TA0CCTL0 ! \ toggle mode / interrupts enabled
-  $1F4 TA0CCR0 ! \ Set to 1Mhz / 500 -> 0.5ms
-  $10E0 TA0CCTL1 ! \ CCI1B / set\reset mode / interrupts disabled
+  $210        TA0CTL !   \ SMCLK/1 up mode interrupts not enabled<?>
+  100 percent TA0CCR0 !  \ Set to 8Mhz * 16000 -> 2ms
+  $90         TA0CCTL0 ! \ toggle mode / interrupts enabled
+  $10E0       TA0CCTL1 ! \ CCI1B / set\reset mode / interrupts disabled
 
-  $2D0 TA1CTL ! \ SMCLK/8 up mode interrupts disabled
-  $80 TA1CCTL0 ! \ CCI0A / toggle mode / interrupts enabled
-  $E0 TA1CCTL1 ! \ CCI1A / set\reset mode / interrupts disabled
-  $E0 TA1CCTL2 ! \ CCI2A / set\reset mode / interrupts disabled
-  $1F4 TA1CCR0 ! \ Set to 1Mhz / 2500 -> 0.5ms
+  $210        TA1CTL !   \ SMCLK/1 up mode interrupts disabled
+  100 percent TA1CCR0 !  \ Set to 8Mhz * 16000 -> 2ms
+  $80         TA1CCTL0 ! \ CCI0A / toggle mode / interrupts enabled
+  $E0         TA1CCTL1 ! \ CCI1A / set\reset mode / interrupts disabled
+  $E0         TA1CCTL2 ! \ CCI2A / set\reset mode / interrupts disabled
+
+  colourflash \ Flash primary colours
 
   \ Set inital duty cycles
   2 percent red >dutycycle
