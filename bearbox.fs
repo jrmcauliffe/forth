@@ -47,9 +47,9 @@ red variable currentcolour
 ;
 
 : printstatus ( -- ) \ Show current rgb percentage values
-  ."  ( r :" red dutycycle> .
-  ." g :" green dutycycle> .
-  ." b :" blue dutycycle> . ." ) "
+  ."  ( r :" red dutycycle> . ." - " TA1CCR2 @ .
+  ." g :" green dutycycle> . ." - " TA1CCR1 @ .
+  ." b :" blue dutycycle>  . ." - " TA0CCR1 @ . ." ) "
 ;
 
 : on ( colourvar -- ) \ Turn led on
