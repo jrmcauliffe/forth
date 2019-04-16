@@ -26,7 +26,9 @@ $0 variable rotary2state
 red variable currentcolour
 
 : percentscaledwithgamma ( n1, n2 -- n2 ) \ n1 scaled by n2 %
-  tick * 100 */
+  tick 100 */ \ Scaled tick length
+  swap gammatable swap cells + @ $FFFF u/mod nip / \ Scale original % with Gamma table
+  * \ Multiply by scaled tick length
 ;
 
 : updateled ( n colourvar -- ) \ Set scaled value for timer constant
