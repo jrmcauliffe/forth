@@ -2,34 +2,34 @@ compiletoflash
 
 #include pins
 #include ms
-
-\ Clock control alias for colour control
+#include gammatable
 
 \ Project pin assignments
-: pin 1 swap lshift 1-foldable ;   \ Create output pin mask(s)
-1 pin constant pgreen   \ LED Green p2.1
-6 pin constant pblue    \ LED Blue  p1.6
-4 pin constant pred     \ LED Red   p2.4
-7 pin constant pbutton  \ Rotary encoder button  p1.7
-4 pin constant protary1 \ Rotary encoder switch1 p1.4
-5 pin constant protary2 \ Rotary encoder switch2 p1.5
-2 pin constant ptap     \ Free pin to test timer etc p2.2
-80 constant tick        \ 1 percent duty cycle time
+: pin 1 swap lshift 1-foldable ; \ Create output pin mask(s)
+1 pin constant pgreen            \ LED Green p2.1
+6 pin constant pblue             \ LED Blue  p1.6
+4 pin constant pred              \ LED Red   p2.4
+7 pin constant pbutton           \ Rotary encoder button  p1.7
+4 pin constant protary1          \ Rotary encoder switch1 p1.4
+5 pin constant protary2          \ Rotary encoder switch2 p1.5
+2 pin constant ptap              \ Free pin to test timer etc p2.2
+true constant debugmode
+80 constant tick                 \ 1 percent duty cycle time
+100 tick * constant 100ticks     \ 100 percent duty cycle time
 
 $0 variable buttonstate
 $0 variable rotary1state
 $0 variable rotary2state
-$0 variable red
-$0 variable green
-$0 variable blue
+0 variable red
+0 variable green
+0 variable blue
 red variable currentcolour
-true variable debugmode
 
 : percentscaledwithgamma ( n1, n2 -- n2 ) \ n1 scaled by n2 %
   tick * 100 */
 ;
 
-: updateled ( n ledvar -- ) \ Set scaled value for timer constant
+: updateled ( n colourvar -- ) \ Set scaled value for timer constant
   case
     red of 100 percentscaledwithgamma TA1CCR2 ! endof
     green of 25 percentscaledwithgamma TA1CCR1 ! endof
@@ -37,7 +37,7 @@ true variable debugmode
   endcase
 ;
 
-: >dutycycle ( n ledvar -- ) \ Set desired percent for given led pinning between 0 and 100 %
+: >dutycycle ( n colourvar -- ) \ Set desired percent for given led pinning between 0 and 100 %
   swap 100 min 0 max swap
   2dup ! updateled
 ;
@@ -52,15 +52,15 @@ true variable debugmode
   ." b :" blue dutycycle> . ." ) "
 ;
 
-: on ( ledvar -- ) \ Turn led on
+: on ( colourvar -- ) \ Turn led on
   100 swap >dutycycle
 ;
 
-: off ( ledvar -- ) \ Turn led off
+: off ( coulourvar -- ) \ Turn led off
   0 swap >dutycycle
 ;
 
-: flash ( ledvar -- ) \ Briefly turn on then off
+: flash ( colourvar -- ) \ Briefly turn on then off
   dup on 500 ms off
 ;
 
@@ -101,19 +101,21 @@ true variable debugmode
   pbutton protary1 or protary2 or p1ren cbis! \ Enable pullup on pushbuttons
 
   ['] timerA0-irq-handler irq-timera0 ! \ register handler for interrupt
-  $210        TA0CTL !   \ SMCLK/1 up mode interrupts not enabled
-  100 tick *  TA0CCR0 !  \ Set to 8Mhz * 8000 -> 1ms
-  $90         TA0CCTL0 ! \ toggle mode / interrupts enabled
-  $10E0       TA0CCTL1 ! \ CCI1B / set\reset mode / interrupts disabled
+  $210     TA0CTL !   \ SMCLK/1 up mode interrupts not enabled
+  100ticks TA0CCR0 !  \ Set to 8Mhz * 8000 -> 1ms
+  $90      TA0CCTL0 ! \ toggle mode / interrupts enabled
+  $10E0    TA0CCTL1 ! \ CCI1B / set\reset mode / interrupts disabled
 
-  $210        TA1CTL !   \ SMCLK/1 up mode interrupts disabled
-  100 tick *  TA1CCR0 !  \ Set to 8Mhz * 8000 -> 1ms
-  $80         TA1CCTL0 ! \ CCI0A / toggle mode / interrupts enabled
-  $E0         TA1CCTL1 ! \ CCI1A / set\reset mode / interrupts disabled
-  $E0         TA1CCTL2 ! \ CCI2A / set\reset mode / interrupts disabled
+  $210     TA1CTL !   \ SMCLK/1 up mode interrupts disabled
+  100ticks TA1CCR0 !  \ Set to 8Mhz * 8000 -> 1ms
+  $80      TA1CCTL0 ! \ CCI0A / toggle mode / interrupts enabled
+  $E0      TA1CCTL1 ! \ CCI1A / set\reset mode / interrupts disabled
+  $E0      TA1CCTL2 ! \ CCI2A / set\reset mode / interrupts disabled
 
   \ Flash primary colours
-  red flash green flash blue flash
+  red flash
+  green flash
+  blue flash
 
   \ Set inital duty cycles
   2 red >dutycycle
