@@ -79,11 +79,11 @@ red variable currentcolour
 ;
 
 : cw
-  currentcolour @ dutycycle> 2 + currentcolour @ >dutycycle
+  currentcolour @ dutycycle> 5 + currentcolour @ >dutycycle
   debugmode @ if ." cw    " printstatus cr then ;
 
 : ccw
-  currentcolour @ dutycycle> 2 - currentcolour @ >dutycycle
+  currentcolour @ dutycycle> 5 - currentcolour @ >dutycycle
   debugmode @ if ." ccw   " printstatus cr then
 ;
 
@@ -119,9 +119,9 @@ red variable currentcolour
   blue flash
 
   \ Set inital duty cycles
-  16 red >dutycycle
-  16 green >dutycycle
-  16 blue >dutycycle
+  10 red >dutycycle
+  10 green >dutycycle
+  10 blue >dutycycle
 
   eint \ Enable interrupts
 ;
