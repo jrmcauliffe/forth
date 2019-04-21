@@ -1,7 +1,7 @@
 compiletoflash
 
 #include pins
-#include ms
+#require ms
 #include gammatable
 
 \ Project pin assignments
@@ -15,7 +15,6 @@ compiletoflash
 2 pin constant ptap              \ Free pin to test timer etc p2.2
 true constant debugmode
 80 constant tick                 \ 1 percent duty cycle time
-100 tick * constant 100ticks     \ 100 percent duty cycle time
 
 $0 variable buttonstate
 $0 variable rotary1state
@@ -27,14 +26,13 @@ red variable currentcolour
 
 : percentscaledwithgamma ( n1, n2 -- n2 ) \ n1 scaled by n2 %
   tick 100 */ \ Scaled tick length
-  swap gammatable swap cells + @ $FFFF u/mod nip / \ Scale original % with Gamma table
-  * \ Multiply by scaled tick length
+  swap dup gammatable swap cells + @ -rot * $FFFF u*/ \ Scale original % with Gamma table
 ;
 
 : updateled ( n colourvar -- ) \ Set scaled value for timer constant
   case
     red of 100 percentscaledwithgamma TA1CCR2 ! endof
-    green of 25 percentscaledwithgamma TA1CCR1 ! endof
+    green of 35 percentscaledwithgamma TA1CCR1 ! endof
     blue of 60 percentscaledwithgamma TA0CCR1 ! endof
   endcase
 ;
@@ -103,16 +101,16 @@ red variable currentcolour
   pbutton protary1 or protary2 or p1ren cbis! \ Enable pullup on pushbuttons
 
   ['] timerA0-irq-handler irq-timera0 ! \ register handler for interrupt
-  $210     TA0CTL !   \ SMCLK/1 up mode interrupts not enabled
-  100ticks TA0CCR0 !  \ Set to 8Mhz * 8000 -> 1ms
-  $90      TA0CCTL0 ! \ toggle mode / interrupts enabled
-  $10E0    TA0CCTL1 ! \ CCI1B / set\reset mode / interrupts disabled
+  $210       TA0CTL !   \ SMCLK/1 up mode interrupts not enabled
+  100 tick * TA0CCR0 !  \ Set to 8Mhz * 8000 -> 1ms
+  $90        TA0CCTL0 ! \ toggle mode / interrupts enabled
+  $10E0      TA0CCTL1 ! \ CCI1B / set\reset mode / interrupts disabled
 
-  $210     TA1CTL !   \ SMCLK/1 up mode interrupts disabled
-  100ticks TA1CCR0 !  \ Set to 8Mhz * 8000 -> 1ms
-  $80      TA1CCTL0 ! \ CCI0A / toggle mode / interrupts enabled
-  $E0      TA1CCTL1 ! \ CCI1A / set\reset mode / interrupts disabled
-  $E0      TA1CCTL2 ! \ CCI2A / set\reset mode / interrupts disabled
+  $210       TA1CTL !   \ SMCLK/1 up mode interrupts disabled
+  100 tick * TA1CCR0 !  \ Set to 8Mhz * 8000 -> 1ms
+  $80        TA1CCTL0 ! \ CCI0A / toggle mode / interrupts enabled
+  $E0        TA1CCTL1 ! \ CCI1A / set\reset mode / interrupts disabled
+  $E0        TA1CCTL2 ! \ CCI2A / set\reset mode / interrupts disabled
 
   \ Flash primary colours
   red flash
@@ -120,9 +118,9 @@ red variable currentcolour
   blue flash
 
   \ Set inital duty cycles
-  2 red >dutycycle
-  2 green >dutycycle
-  2 blue >dutycycle
+  16 red >dutycycle
+  16 green >dutycycle
+  16 blue >dutycycle
 
   eint \ Enable interrupts
 ;
