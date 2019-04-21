@@ -1,5 +1,6 @@
 compiletoflash
 
+#require rewind-to-basis
 #include pins
 #require ms
 #include gammatable
@@ -32,8 +33,8 @@ red variable currentcolour
 : updateled ( n colourvar -- ) \ Set scaled value for timer constant
   case
     red of 100 percentscaledwithgamma TA1CCR2 ! endof
-    green of 35 percentscaledwithgamma TA1CCR1 ! endof
-    blue of 60 percentscaledwithgamma TA0CCR1 ! endof
+    green of 25 percentscaledwithgamma TA1CCR1 ! endof
+    blue of 70 percentscaledwithgamma TA0CCR1 ! endof
   endcase
 ;
 
