@@ -1,6 +1,13 @@
 compiletoflash
 
-#include pins
+\res MCU: MSP430G2553
+
+\ Timer_A0
+\res export TA0CTL TA0CCTL0 TA0CCTL1 TA0CCR0 TA0CCR1
+
+\ Timer_A1
+\res export TA1CTL TA1CCTL0 TA1CCTL1 TA1CCTL2 TA1CCR0 TA1CCR1 TA1CCR2
+
 #include ms
 #include gammatable
 
