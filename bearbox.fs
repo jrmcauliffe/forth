@@ -8,6 +8,9 @@ compiletoflash
 \ Timer_A1
 \res export TA1CTL TA1CCTL0 TA1CCTL1 TA1CCTL2 TA1CCR0 TA1CCR1 TA1CCR2
 
+\ DIGITAL_IO
+\res export P1IN P1OUT P1SEL P1DIR P1IE P1IFG P1REN P2SEL P2DIR P2OUT
+
 #include ms
 #include gammatable
 
@@ -20,7 +23,7 @@ compiletoflash
 4 pin constant protary1          \ Rotary encoder switch1 p1.4
 5 pin constant protary2          \ Rotary encoder switch2 p1.5
 2 pin constant ptap              \ Free pin to test timer etc p2.2
-false constant debugmode
+true constant debugmode
 80 constant tick                 \ 1 percent duty cycle time
 60000 constant timeout           \ 60 second timeout
 $0 variable buttonstate
@@ -71,11 +74,6 @@ red variable currentcolour
 ;
 
 : sleep ( -- ) \ Turn off leds and go to sleep
-  $0000 sleeptimer ! 
-  red off
-  green off
-  blue off
-  lpm4  
 ;
 
 \ : printstatus ( -- ) \ Show current rgb percentage values
@@ -111,27 +109,32 @@ red variable currentcolour
 
 : timerA0-irq-handler \ rotary encoder debounce code
   1 sleeptimer +! \ inc sleep timer then check to see whether we sleep
-  sleep? if sleep then
   
-  buttonstate @ shl pbutton p1in cbit@ 1 and or buttonstate !
+  buttonstate @ shl pbutton P1IN cbit@ 1 and or buttonstate !
   buttonstate @ $8000 = if buttonpress then
-  rotary1state @ shl protary1 p1in cbit@ not 1 and or $FE00 or rotary1state !
+  rotary1state @ shl protary1 P1IN cbit@ not 1 and or $FE00 or rotary1state !
   rotary1state @ $FF00 = rotary1state @ rotary2state @ > and if cw then
-  rotary2state @ shl protary2 p1in cbit@ not 1 and or $FE00 or rotary2state !
+  rotary2state @ shl protary2 P1IN cbit@ not 1 and or $FE00 or rotary2state !
   rotary2state @ $FF00 = rotary2state @ rotary1state @ > and if ccw then
+  sleep? if
+  $0000 sleeptimer !
+  pgreen pred or P2SEL cbic! pblue P1SEL cbic! \ Turn off special function
+  pgreen pred or P2OUT cbic! pblue P1OUT cbic! \ clear
+  lpm4 then
 ;
 
 : port1-irq-handler \ wake from sleep on button
-  pbutton p1ifg cbic! \ Clear interrupt flags
+  pbutton P1IFG cbic! \ Clear interrupt flags
   wakeup
+  pgreen pred or P2SEL cbis! pblue P1SEL cbis! \ Set red, green an blue pins to special
   debugmode not if lpm1 then
 ;
 
 : myinit
-  pgreen pred or p2dir cbis! pblue p1dir cbis! \ Set red, green an blue pins to output
-  pgreen pred or p2sel cbis! pblue p1sel cbis! \ Set red, green an blue pins to special 
-  pbutton protary1 or protary2 or p1ren cbis! \ Enable pullup on pushbuttons
-  pbutton p1ie cbis! \ Enable interrupts on pushbutton only
+  pgreen pred or P2DIR cbis! pblue P1DIR cbis! \ Set red, green an blue pins to output
+  pgreen pred or P2SEL cbis! pblue P1SEL cbis! \ Set red, green an blue pins to special
+  pbutton protary1 or protary2 or P1REN cbis! \ Enable pullup on pushbuttons
+  pbutton P1IE cbis! \ Enable interrupts on pushbutton only
 
   ['] timerA0-irq-handler irq-timera0 ! \ register handler for timer interrupt
   ['] port1-irq-handler irq-port1 ! \ register handler for timer interrupt
