@@ -44,7 +44,6 @@ $9 constant OUTMODE-HS  \   0   1   X   1   1  Output with high drive strength
 : us 0 ?do [ $3C00 , $3C00 , ] loop ;
 : ms 0 ?do 998 us loop ;
 
-
 \ Onboard green led
 4 7 io CONSTANT LED
 : led_init OUTMODE-LS LED io-mode! ;
@@ -64,6 +63,11 @@ LCD_RS io-base POUT + CONSTANT LCD_OUT \ Output register for LCD
 
 : .o LCD_OUT c@ hex. ;
 
+: lcd_busy?  ( -- f )
+  LCD_RS io-0! LCD_RW io-1! LCD_E io-1! \ Set to Read Busy
+  LCD_DB7 io@  \ Read Busy Flag
+  LCD_E io-0!
+;
 : >upperlcd ( c f -- ) \ write upper nibble to lcd if instruction else data
   LCD_RS io! LCD_RW io-0! LCD_E io-1!
   $F0 LCD_OUT 2dup cbic! \ clear top nibble of LCD_OUT
@@ -76,6 +80,7 @@ LCD_RS io-base POUT + CONSTANT LCD_OUT \ Output register for LCD
 ;
 
 : >lcdi ( u -- ) \ Write config byte to lcd
+  begin 10 us lcd_busy? not until
   false >lcdf
 ;
 
@@ -93,10 +98,10 @@ LCD_RS io-base POUT + CONSTANT LCD_OUT \ Output register for LCD
   OUTMODE-LS LCD_DB6 io-mode!
   OUTMODE-LS LCD_DB7 io-mode!
   LCD_POWER io-1!            \ turn on power
-  $38 false >upperlcd 30 us  \ Function set (4 bit, 1 line, small font, IS1)
-  $38 false >upperlcd 30 us  \ Function set (4 bit, 1 line, small font, IS1)
-  $28 false >upperlcd 30 us  \ Function set (4 bit, 1 line, small font, IS1)
-  $21 >lcdi 30 us            \ Function set (4 bit, 1 line, small font, IS1)
+  $30 false >upperlcd 30 us  \ Function set (8 bit, 1 line, small font, IS1)
+  $30 false >upperlcd 30 us  \ Function set (8 bit, 1 line, small font, IS1)
+  $30 false >upperlcd 30 us  \ Function set (8 bit, 1 line, small font, IS1)
+  $20 false >upperlcd 30 us  \ Function set (4 bit, 1 line, small font, IS1)
   $14 >lcdi 30 us            \ Set OSC frequency ( ~ 183 Hz)
   $78 >lcdi 30 us            \ Set contrast (lower nibble)
   $5E >lcdi 30 us            \ Power / ICON ON / Contrast (upper)
