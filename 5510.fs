@@ -45,13 +45,11 @@ $9 constant OUTMODE-HS  \   0   1   X   1   1  Output with high drive strength
 : ms 0 ?do 998 us loop ;
 
 
-
-
 \ Onboard green led
-: led 4 7 io 0-foldable ;
-: led_init OUTMODE-LS led io-mode! ;
-: led_on led io-1! ;
-: led_off led io-0! ;
+4 7 io CONSTANT LED
+: led_init OUTMODE-LS LED io-mode! ;
+: led_on LED io-1! ;
+: led_off LED io-0! ;
 
 \ Onboard lcd
 5 1 io CONSTANT LCD_POWER
@@ -62,31 +60,26 @@ $9 constant OUTMODE-HS  \   0   1   X   1   1  Output with high drive strength
 1 5 io CONSTANT LCD_DB5
 1 6 io CONSTANT LCD_DB6
 1 7 io CONSTANT LCD_DB7
+LCD_RS io-base POUT + CONSTANT LCD_OUT
 
-: .o hex $202 c@ 4 rshift . ;
+: .o LCD_OUT c@ hex. ;
 
-: >lcd ( c -- ) \ Write a char to the lcd
-  $202 2dup
-  LCD_RS io-0!
-  LCD_RW io-0!
-  LCD_E io-1!
-  $F0 over cbic! swap $F0 and swap cbis! .o
-  LCD_E io-0! LCD_E io-1! \ clock enable line
-  $F0 over cbic! swap 4 lshift $F0 and swap cbis! .o
+: >upperlcd ( c f -- ) \ write upper nibble to lcd if instruction else data
+  LCD_RS io! LCD_RW io-0!  LCD_E io-1!
+  LCD_OUT $F0 over cbic! swap $F0 and swap cbis!
   LCD_E io-0!
 ;
-: >lcdd ( c -- ) \ Write a char to the lcd
-  $202 2dup
-  LCD_RS io-1!
-  LCD_RW io-0!
-  LCD_E io-1!
-  $F0 over cbic! swap $F0 and swap cbis! .o
-  LCD_E io-0!
-  LCD_RS io-1!
-  LCD_RW io-0!
-  LCD_E io-1!
-  $F0 over cbic! swap 4 lshift $F0 and swap cbis! .o
-  LCD_E io-0!
+  
+: >lcdf ( c f -- ) \ Write a byte to the lcd with i/d flag
+  2dup swap 4 lshift swap >upperlcd >upperlcd
+;
+
+: >lcdi ( u -- ) \ Write config byte to lcd
+  false >lcdf
+;
+
+: >lcd ( c -- ) \ Write a char to lcd
+  true >lcdf
 ;
 
 : lcd_init ( -- ) \ Initialise all registers needed by lcd
@@ -98,16 +91,16 @@ $9 constant OUTMODE-HS  \   0   1   X   1   1  Output with high drive strength
   OUTMODE-LS LCD_DB5 io-mode!
   OUTMODE-LS LCD_DB6 io-mode!
   OUTMODE-LS LCD_DB7 io-mode!
-  LCD_POWER io-1!                 \ turn on power
-  $31 >lcd 30 us            \ Function set (4 bit, 1 line, small font, IS1)
-  $31 >lcd 30 us            \ Function set (4 bit, 1 line, small font, IS1)
-  $31 >lcd 30 us            \ Function set (4 bit, 1 line, small font, IS1)
-  $21 >lcd 30 us            \ Function set (4 bit, 1 line, small font, IS1)
-  $14 >lcd 30 us            \ Set OSC frequency ( ~ 183 Hz)
-  $78 >lcd 30 us            \ Set contrast (lower nibble)
-  $5E >lcd 30 us            \ Power / ICON ON / Contrast (upper)
-  $6A >lcd 200 ms           \ Follower Control
-  $0C >lcd 30 us            \ Display on
-  $01 >lcd 2 ms             \ Clear Display
-  $06 >lcd 30 us            \ Entry Mode
+  LCD_POWER io-1!            \ turn on power
+  $38 false >upperlcd 30 us  \ Function set (4 bit, 1 line, small font, IS1)
+  $38 false >upperlcd 30 us  \ Function set (4 bit, 1 line, small font, IS1)
+  $28 false >upperlcd 30 us  \ Function set (4 bit, 1 line, small font, IS1)
+  $21 >lcdi 30 us            \ Function set (4 bit, 1 line, small font, IS1)
+  $14 >lcdi 30 us            \ Set OSC frequency ( ~ 183 Hz)
+  $78 >lcdi 30 us            \ Set contrast (lower nibble)
+  $5E >lcdi 30 us            \ Power / ICON ON / Contrast (upper)
+  $6A >lcdi 200 ms           \ Follower Control
+  $0C >lcdi 30 us            \ Display on
+  $01 >lcdi 2 ms             \ Clear Display
+  $06 >lcdi 30 us            \ Entry Mode
 ;
