@@ -60,13 +60,14 @@ $9 constant OUTMODE-HS  \   0   1   X   1   1  Output with high drive strength
 1 5 io CONSTANT LCD_DB5
 1 6 io CONSTANT LCD_DB6
 1 7 io CONSTANT LCD_DB7
-LCD_RS io-base POUT + CONSTANT LCD_OUT
+LCD_RS io-base POUT + CONSTANT LCD_OUT \ Output register for LCD
 
 : .o LCD_OUT c@ hex. ;
 
 : >upperlcd ( c f -- ) \ write upper nibble to lcd if instruction else data
-  LCD_RS io! LCD_RW io-0!  LCD_E io-1!
-  LCD_OUT $F0 over cbic! swap $F0 and swap cbis!
+  LCD_RS io! LCD_RW io-0! LCD_E io-1!
+  $F0 LCD_OUT 2dup cbic! \ clear top nibble of LCD_OUT
+  -rot and swap cbis! \ set top nibble of LCD_OUT with top nibble of c
   LCD_E io-0!
 ;
   
