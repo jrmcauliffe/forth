@@ -50,52 +50,66 @@ $9 constant OUTMODE-HS  \   0   1   X   1   1  Output with high drive strength
 : led_on LED io-1! ;
 : led_off LED io-0! ;
 
-\ Onboard lcd
-5 1 io CONSTANT LCD_POWER
-1 1 io CONSTANT LCD_RS
-1 2 io CONSTANT LCD_RW
-1 3 io CONSTANT LCD_E
-1 4 io CONSTANT LCD_DB4
-1 5 io CONSTANT LCD_DB5
-1 6 io CONSTANT LCD_DB6
-1 7 io CONSTANT LCD_DB7
-LCD_RS io-base POUT + CONSTANT LCD_OUT \ Output register for LCD
+\ Onboard lcdi
+1 CONSTANT LCD_PORT
+5 LCD_PORT io CONSTANT LCD_POWER
+1 LCD_PORT io CONSTANT LCD_RS
+1 LCD_PORT io CONSTANT LCD_RW
+1 LCD_PORT io CONSTANT LCD_E
+1 LCD_PORT io CONSTANT LCD_DB4
+1 LCD_PORT io CONSTANT LCD_DB5
+1 LCD_PORT io CONSTANT LCD_DB6
+1 LCD_PORT io CONSTANT LCD_DB7
 
-: .o LCD_OUT c@ hex. ;
+
 
 : lcd_busy?  ( -- f )
   LCD_RS io-0! LCD_RW io-1! LCD_E io-1! \ Set to Read Busy
   LCD_DB7 io@  \ Read Busy Flag
   LCD_E io-0!
 ;
+
+: uppernibble> ( port# -- c )  \ Read upper nibble of port
+  8 lshift io-base POUT +      \ calculate address
+  c@ 4 rshift                  \ read
+;
+
+: .o LCD_PORT uppernibble> hex. ;
+
+: >uppernibble  ( char port# -- ) \ write upper nibble of port
+  8 lshift io-base POUT +         \ calculate address
+  dup $F0 swap cbic!              \ clear upper nibble
+  swap 4 lshift swap cbis!        \ write upper nibble
+  .o
+;
+
 : >lcdnibble ( c -- ) \ write upper nibble to lcd if instruction else data
-  LCD_RW io-0! 
-  4 lshift
-  $F0 LCD_OUT 2dup cbic! \ clear top nibble of LCD_OUT
-  \ $F0 and LCD_OUT c!
-  -rot and swap cbis! \ set top nibble of LCD_OUT with top nibble of c
- LCD_E io-0!
- .o
+  LCD_RW io-0!
+  LCD_E io-1!
+  LCD_PORT >uppernibble
+  LCD_E io-0!
 ;
   
-: >lcdf ( c -- ) \ Write a byte to the lcd with i/d flag
-  dup 4 rshift  >lcdnibble 20 ms >lcdnibble
-  LCD_DB7 io-1!
+: >lcdf ( c -- ) \ Write a byte to the lcd
+  dup 4 rshift  >lcdnibble \ send upper nibble to lcd
+  20 ms                    \ wait
+  >lcdnibble               \ send lower nibble to lcd
+  \ LCD_DB7 io-1!
 ;
 
 : >lcdi ( u -- ) \ Write config byte to lcd
 \  begin 10 us lcd_busy? not until
-  LCD_RS io-0!               \ set to instruction
-  >lcdf
+  LCD_RS io-0!  \ set to instruction
+  >lcdf         \ send to lcd
 ;
 
 : >lcd ( c -- ) \ Write a char to lcd
-  LCD_RS io-1!               \ set to data
-  >lcdf
+  LCD_RS io-1!  \ set to data
+  >lcdf         \ send to lcd
 ;
 
 : lcd_init ( -- ) \ Initialise all registers needed by lcd
-  OUTMODE-HS LCD_POWER io-mode!
+  OUTMODE-LS LCD_POWER io-mode!
   OUTMODE-LS LCD_RS io-mode!
   OUTMODE-LS LCD_RW io-mode!
   OUTMODE-LS LCD_E io-mode!
@@ -103,14 +117,15 @@ LCD_RS io-base POUT + CONSTANT LCD_OUT \ Output register for LCD
   OUTMODE-LS LCD_DB5 io-mode!
   OUTMODE-LS LCD_DB6 io-mode!
   OUTMODE-LS LCD_DB7 io-mode!
-  LCD_POWER io-1!            \ turn on power
-  LCD_RS io-0!               \ set to intsruction mode
-  15 ms                      \ Wait time for boot
-  $3 >lcdnibble  5 ms   \ Function set (8 bit, 1 line, small font, IS1)
-  $3 >lcdnibble 160 us  \ Function set (8 bit, 1 line, small font, IS1)
-  $3 >lcdnibble 160 us  \ Function set (8 bit, 1 line, small font, IS1)
-  $2 >lcdnibble 50 us  \ Function set (4 bit, 1 line, small font, IS1)
+  LCD_POWER io-0!             \ Toggle power
+  LCD_POWER io-1!
+  15 ms                       \ Wait time for boot
+  LCD_RS io-0!                \ Set to intsruction mode
+  $3 >lcdnibble  5 ms         \ Function set (8 bit, 1 line)
+  $3 >lcdnibble 160 us        \ Function set (8 bit, 1 line)
+  $3 >lcdnibble 160 us        \ Function set (8 bit, 1 line)
+  $2 >lcdnibble 50 us         \ Function set (4 bit, 1 line)
   $20 >lcdi 1000 ms
-  $08 >lcdi 30 us            \ Display on
-  $01 >lcdi 2 ms             \ Clear Display
+  $08 >lcdi 30 us             \ Display on
+  $01 >lcdi 2 ms              \ Clear Display
 ;
