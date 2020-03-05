@@ -68,28 +68,34 @@ LCD_RS io-base POUT + CONSTANT LCD_OUT \ Output register for LCD
   LCD_DB7 io@  \ Read Busy Flag
   LCD_E io-0!
 ;
-: >upperlcd ( c f -- ) \ write upper nibble to lcd if instruction else data
-  LCD_RS io! LCD_RW io-0! LCD_E io-1!
+: >lcdnibble ( c -- ) \ write upper nibble to lcd if instruction else data
+  LCD_RW io-0! 
+  4 lshift
   $F0 LCD_OUT 2dup cbic! \ clear top nibble of LCD_OUT
+  \ $F0 and LCD_OUT c!
   -rot and swap cbis! \ set top nibble of LCD_OUT with top nibble of c
-  LCD_E io-0!
+ LCD_E io-0!
+ .o
 ;
   
-: >lcdf ( c f -- ) \ Write a byte to the lcd with i/d flag
-  2dup swap 4 lshift swap >upperlcd >upperlcd
+: >lcdf ( c -- ) \ Write a byte to the lcd with i/d flag
+  dup 4 rshift  >lcdnibble 20 ms >lcdnibble
+  LCD_DB7 io-1!
 ;
 
 : >lcdi ( u -- ) \ Write config byte to lcd
-  begin 10 us lcd_busy? not until
-  false >lcdf
+\  begin 10 us lcd_busy? not until
+  LCD_RS io-0!               \ set to instruction
+  >lcdf
 ;
 
 : >lcd ( c -- ) \ Write a char to lcd
-  true >lcdf
+  LCD_RS io-1!               \ set to data
+  >lcdf
 ;
 
 : lcd_init ( -- ) \ Initialise all registers needed by lcd
-  OUTMODE-LS LCD_POWER io-mode!
+  OUTMODE-HS LCD_POWER io-mode!
   OUTMODE-LS LCD_RS io-mode!
   OUTMODE-LS LCD_RW io-mode!
   OUTMODE-LS LCD_E io-mode!
@@ -98,15 +104,13 @@ LCD_RS io-base POUT + CONSTANT LCD_OUT \ Output register for LCD
   OUTMODE-LS LCD_DB6 io-mode!
   OUTMODE-LS LCD_DB7 io-mode!
   LCD_POWER io-1!            \ turn on power
-  $30 false >upperlcd 30 us  \ Function set (8 bit, 1 line, small font, IS1)
-  $30 false >upperlcd 30 us  \ Function set (8 bit, 1 line, small font, IS1)
-  $30 false >upperlcd 30 us  \ Function set (8 bit, 1 line, small font, IS1)
-  $20 false >upperlcd 30 us  \ Function set (4 bit, 1 line, small font, IS1)
-  $14 >lcdi 30 us            \ Set OSC frequency ( ~ 183 Hz)
-  $78 >lcdi 30 us            \ Set contrast (lower nibble)
-  $5E >lcdi 30 us            \ Power / ICON ON / Contrast (upper)
-  $6A >lcdi 200 ms           \ Follower Control
-  $0C >lcdi 30 us            \ Display on
+  LCD_RS io-0!               \ set to intsruction mode
+  15 ms                      \ Wait time for boot
+  $3 >lcdnibble  5 ms   \ Function set (8 bit, 1 line, small font, IS1)
+  $3 >lcdnibble 160 us  \ Function set (8 bit, 1 line, small font, IS1)
+  $3 >lcdnibble 160 us  \ Function set (8 bit, 1 line, small font, IS1)
+  $2 >lcdnibble 50 us  \ Function set (4 bit, 1 line, small font, IS1)
+  $20 >lcdi 1000 ms
+  $08 >lcdi 30 us            \ Display on
   $01 >lcdi 2 ms             \ Clear Display
-  $06 >lcdi 30 us            \ Entry Mode
 ;
