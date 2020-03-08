@@ -52,14 +52,14 @@ $9 constant OUTMODE-HS  \   0   1   X   1   1  Output with high drive strength
 
 \ Onboard lcdi
 1 CONSTANT LCD_PORT
-5 LCD_PORT io CONSTANT LCD_POWER
-1 LCD_PORT io CONSTANT LCD_RS
-1 LCD_PORT io CONSTANT LCD_RW
-1 LCD_PORT io CONSTANT LCD_E
-1 LCD_PORT io CONSTANT LCD_DB4
-1 LCD_PORT io CONSTANT LCD_DB5
-1 LCD_PORT io CONSTANT LCD_DB6
-1 LCD_PORT io CONSTANT LCD_DB7
+5 1 io CONSTANT LCD_POWER
+LCD_PORT 1 io CONSTANT LCD_RS
+LCD_PORT 2  io CONSTANT LCD_RW
+LCD_PORT 3 io CONSTANT LCD_E
+LCD_PORT 4 io CONSTANT LCD_DB4
+LCD_PORT 5 io CONSTANT LCD_DB5
+LCD_PORT 6 io CONSTANT LCD_DB6
+LCD_PORT 7 io CONSTANT LCD_DB7
 
 
 
@@ -78,21 +78,22 @@ $9 constant OUTMODE-HS  \   0   1   X   1   1  Output with high drive strength
 
 : >uppernibble  ( char port# -- ) \ write upper nibble of port
   8 lshift io-base POUT +         \ calculate address
-  dup $F0 swap cbic!              \ clear upper nibble
-  swap 4 lshift swap cbis!        \ write upper nibble
+  dup c@ $0F and                  \ save lower nibble
+  rot 4 lshift or swap c!         \ join and write byte 
   .o
 ;
 
 : >lcdnibble ( c -- ) \ write upper nibble to lcd if instruction else data
   LCD_RW io-0!
-  LCD_E io-1!
   LCD_PORT >uppernibble
+  LCD_E io-1!
+  10 ms
   LCD_E io-0!
 ;
   
 : >lcdf ( c -- ) \ Write a byte to the lcd
   dup 4 rshift  >lcdnibble \ send upper nibble to lcd
-  20 ms                    \ wait
+  10 ms
   >lcdnibble               \ send lower nibble to lcd
   \ LCD_DB7 io-1!
 ;
@@ -119,13 +120,13 @@ $9 constant OUTMODE-HS  \   0   1   X   1   1  Output with high drive strength
   OUTMODE-LS LCD_DB7 io-mode!
   LCD_POWER io-0!             \ Toggle power
   LCD_POWER io-1!
-  15 ms                       \ Wait time for boot
+  200 ms                       \ Wait time for boot
   LCD_RS io-0!                \ Set to intsruction mode
-  $3 >lcdnibble  5 ms         \ Function set (8 bit, 1 line)
-  $3 >lcdnibble 160 us        \ Function set (8 bit, 1 line)
-  $3 >lcdnibble 160 us        \ Function set (8 bit, 1 line)
-  $2 >lcdnibble 50 us         \ Function set (4 bit, 1 line)
-  $20 >lcdi 1000 ms
-  $08 >lcdi 30 us             \ Display on
-  $01 >lcdi 2 ms              \ Clear Display
+  $3 >lcdnibble  50 ms         \ Function set (8 bit, 1 line)
+  $3 >lcdnibble 10 ms        \ Function set (8 bit, 1 line)
+  $3 >lcdnibble 10 ms        \ Function set (8 bit, 1 line)
+  $2 >lcdnibble 10 ms         \ Function set (4 bit, 1 line)
+  $20 >lcdi 10 ms
+  $0c >lcdi 10 ms             \ Display on
+  $01 >lcdi 10 ms              \ Clear Display
 ;
