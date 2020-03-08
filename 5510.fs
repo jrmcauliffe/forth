@@ -31,7 +31,7 @@ $9 constant OUTMODE-HS  \   0   1   X   1   1  Output with high drive strength
 : io-mode!  ( mode pin -- ) \ Set io mode registers for pin using constants
   swap 12 2 DO 2dup $1 AND 0= if io-split i + cbic! else io-split i + cbis! then shr 2 +loop 2drop ;
 : io@  ( pin -- flag )
-  io-split POUT + cbit@ ;
+  io-split cbit@ ;
 : io-0!  ( pin -- ) \ set pin to low
   io-split POUT + cbic! ;
 : io-1!  ( pin -- ) \ set pin to high
@@ -50,7 +50,7 @@ $9 constant OUTMODE-HS  \   0   1   X   1   1  Output with high drive strength
 : led_on LED io-1! ;
 : led_off LED io-0! ;
 
-\ Onboard lcdi
+\ Onboard lcd
 1 CONSTANT LCD_PORT
 5 1 io CONSTANT LCD_POWER
 LCD_PORT 1 io CONSTANT LCD_RS
@@ -62,54 +62,59 @@ LCD_PORT 6 io CONSTANT LCD_DB6
 LCD_PORT 7 io CONSTANT LCD_DB7
 
 
-
-: lcd_busy?  ( -- f )
-  LCD_RS io-0! LCD_RW io-1! LCD_E io-1! \ Set to Read Busy
-  LCD_DB7 io@  \ Read Busy Flag
-  LCD_E io-0!
+: lcd_strobe  ( -- ) \ Strobe lcd to read nibble
+  LCD_E io-1! LCD_E io-0!
 ;
+
+: ?lcd_busy  ( -- f )
+  LCD_RS io-0! LCD_RW io-1!   \ Set lcd to read register
+  INMODE-NR LCD_DB7 io-mode!  \ Set DB7 to input
+  LCD_E io-1! LCD_DB7 io@     \ Strobe and read busy flag
+  LCD_E io-0!
+  lcd_strobe                  \ Strobe again for lower nibble
+  OUTMODE-LS LCD_DB7 io-mode! \ Set DB7 back to output
+  LCD_RW io-0!                \ Set lcd to write register
+;
+
 
 : uppernibble> ( port# -- c )  \ Read upper nibble of port
   8 lshift io-base POUT +      \ calculate address
   c@ 4 rshift                  \ read
 ;
 
-: .o LCD_PORT uppernibble> hex. ;
-
 : >uppernibble  ( char port# -- ) \ write upper nibble of port
   8 lshift io-base POUT +         \ calculate address
   dup c@ $0F and                  \ save lower nibble
   rot 4 lshift or swap c!         \ join and write byte 
-  .o
 ;
 
-: >lcdnibble ( c -- ) \ write upper nibble to lcd if instruction else data
+: >lcdnibble ( c -- ) \ write char to lcd port upper nibble
   LCD_RW io-0!
   LCD_PORT >uppernibble
-  LCD_E io-1!
-  10 ms
-  LCD_E io-0!
+  lcd_strobe
 ;
   
-: >lcdf ( c -- ) \ Write a byte to the lcd
-  dup 4 rshift  >lcdnibble \ send upper nibble to lcd
-  10 ms
-  >lcdnibble               \ send lower nibble to lcd
-  \ LCD_DB7 io-1!
+: >lcdbyte ( c -- )         \ Write a byte to the lcd
+  dup 4 rshift  >lcdnibble  \ Send upper nibble to lcd
+  >lcdnibble                \ Send lower nibble to lcd
+  LCD_DB7 io-1!             \ Set busy flag
 ;
 
-: >lcdi ( u -- ) \ Write config byte to lcd
-\  begin 10 us lcd_busy? not until
-  LCD_RS io-0!  \ set to instruction
-  >lcdf         \ send to lcd
+: >lcdi ( u -- )            \ Write config byte to lcd
+  LCD_RS io-0!              \ set to instruction
+  begin ?lcd_busy not until \ Wait until not busy
+  >lcdbyte                  \ send to lcd
 ;
 
 : >lcd ( c -- ) \ Write a char to lcd
   LCD_RS io-1!  \ set to data
-  >lcdf         \ send to lcd
+  >lcdbyte      \ send to lcd
 ;
 
-: lcd_init ( -- ) \ Initialise all registers needed by lcd
+: lcd_clear ( -- ) \ Clear the lcd screen
+  $1 >lcdi
+;
+: lcd_init ( -- ) \ Initialise registers needed by lcd
   OUTMODE-LS LCD_POWER io-mode!
   OUTMODE-LS LCD_RS io-mode!
   OUTMODE-LS LCD_RW io-mode!
@@ -120,13 +125,13 @@ LCD_PORT 7 io CONSTANT LCD_DB7
   OUTMODE-LS LCD_DB7 io-mode!
   LCD_POWER io-0!             \ Toggle power
   LCD_POWER io-1!
-  200 ms                       \ Wait time for boot
+  500 ms                      \ Wait time for boot
   LCD_RS io-0!                \ Set to intsruction mode
-  $3 >lcdnibble  50 ms         \ Function set (8 bit, 1 line)
-  $3 >lcdnibble 10 ms        \ Function set (8 bit, 1 line)
-  $3 >lcdnibble 10 ms        \ Function set (8 bit, 1 line)
-  $2 >lcdnibble 10 ms         \ Function set (4 bit, 1 line)
-  $20 >lcdi 10 ms
-  $0c >lcdi 10 ms             \ Display on
-  $01 >lcdi 10 ms              \ Clear Display
+  $3 >lcdnibble  20 ms        \ Function set (8 bit, 1 line)
+  $3 >lcdnibble 300 us        \ Function set (8 bit, 1 line)
+  $3 >lcdnibble 300 us        \ Function set (8 bit, 1 line)
+  $2 >lcdnibble 300 us        \ Function set (4 bit, 1 line)
+  $20 >lcdi                   \ Function set (4 bit, 1 line)
+  $0c >lcdi                   \ Display on
+  $01 >lcdi                   \ Clear Display
 ;
