@@ -11,8 +11,8 @@ compiletoflash
 \ DIGITAL_IO
 \res export P1IN P1OUT P1SEL P1DIR P1IE P1IFG P1REN P2SEL P2DIR P2OUT
 
-#include ms
-#include gammatable
+#include ms.fs
+#include gammatable.fs
 
 \ Project pin assignments
 : pin 1 swap lshift 1-foldable ; \ Create output pin mask(s)
