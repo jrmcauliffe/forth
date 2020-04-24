@@ -47,8 +47,8 @@
   ISDATA io-0!        \ Swtch to command
   dup cell+ @ >spi    \ Send command
   CS io-1!            \ Disable
-  @ dup               \ Grab argument count and save a copy for cleanup
-  dup 0= if else      \ skip if zero arg command
+    @ dup               \ Grab argument count and save a copy for cleanup
+  dup 0= if 2drop else \ skip if zero arg command
     CS io-0!
     ISDATA io-1!      \ Switch to data
     1 swap do i pick  \ Send in reverse order
@@ -99,6 +99,7 @@ $29 0 lcd_cmd DISPON
 $2A 4 lcd_cmd CASET
 $2B 4 lcd_cmd RASET
 $2C 0 lcd_cmd RAMWR
+
 : lcd-init
   spi-init
   RESET io-0! 1 ms
@@ -122,13 +123,14 @@ $2C 0 lcd_cmd RAMWR
   DISPON  
 ;
 
-: lcd-red
+: lcd-colour ( n -- ) \ write 565 colour
 
   $00 $00 $00 $7F CASET
   $00 $00 $00 $9F RASET
   RAMWR
   ISDATA io-1! 
   CS io-0!
-  128 160 * 0 do  $F8 >spi $00 >spi loop
+  128 160 * 0 do dup 8 rshift >spi dup >spi loop
   CS io-1!
+  drop
 ;
