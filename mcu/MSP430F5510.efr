@@ -375,47 +375,63 @@
 \ UCAxCTL0, USCI_Ax Control Register 0
 \ UCBxCTL0, USCI_Bx Control Register 0
 \ ------------------------------------
-068 equ UCB0CTL0
-        BIT0     equ UCSYNC
-        BIT1 2 bits: UCMODE_
-        BIT3     equ UCMST 
-        BIT5     equ UCMM    \ I2C
-        BIT5     equ UCMSB   \ SPI
-        BIT6     equ UCSLA10 \ I2C
-        BIT6     equ UCCKPL  \ SPI
-        BIT7     equ UCA10   \ I2C
-        BIT7     equ UCCKPH  \ SPI
+05E1 equ UCB0CTL0
+         BIT0     equ UCSYNC
+         BIT1 2 bits: UCMODE_
+         BIT3     equ UCMST 
+         BIT5     equ UCMM    \ I2C
+         BIT5     equ UCMSB   \ SPI
+         BIT6     equ UCSLA10 \ I2C
+         BIT6     equ UCCKPL  \ SPI
+         BIT7     equ UCA10   \ I2C
+         BIT7     equ UCCKPH  \ SPI
 
 
 \ UCAxCTL1, USCI_Ax Control Register 1
 \ UCBxCTL1, USCI_Bx Control Register 1
 \ ------------------------------------
-069 equ UCB0CTL1
-        BIT0 equ UCSWRST
-        BIT1 equ UCTXSTT
-        BIT2 equ UCTXSTP
-        BIT3 equ UCTXNACK
-        BIT4 equ UCTR
-        \ unused
-        BIT6 2 bits: UCSSEL_
+05E0 equ UCB0CTL1
+         BIT0 equ UCSWRST
+         BIT1 equ UCTXSTT
+         BIT2 equ UCTXSTP
+         BIT3 equ UCTXNACK
+         BIT4 equ UCTR
+         \ unused
+         BIT6 2 bits: UCSSEL_
 
 
-06A equ UCB0BR0
-06B equ UCB0BR1
+05E6 equ UCB0BR0
+05E7 equ UCB0BR1
 
-06C equ UCB0I2CIE
+05FC equ UCB0I2CIE
 
-06D equ UCB0STAT  \ USCI_Bx Status Register
+05EA equ UCB0STAT  \ USCI_Bx Status Register
 
         BIT3 equ UCNACKIFG
         BIT4 equ UCBBUSY
         BIT6 equ UCSCLLOW
 
-06E equ UCB0RXBUF
-06F equ UCB0TXBUF
+05EC equ UCB0RXBUF
+05EE equ UCB0TXBUF
 
-118 equ UCB0I2COA
-11A equ UCB0I2CSA
+05F0 equ UCB0I2COA
+05F2 equ UCB0I2CSA
+
+0621 equ UCB1CTL0
+0620 equ UCB1CTL1
+
+0626 equ UCB1BR0
+0627 equ UCB1BR1
+
+063C equ UCB1I2CIE
+
+062A equ UCB1STAT  \ USCI_Bx Status Register
+
+062C equ UCB1RXBUF
+062E equ UCB1TXBUF
+
+0630 equ UCB1I2COA
+0632 equ UCB1I2CSA
 
 \ -----------------------------------------------------------------------------
 \ Last Revision: MM-160728 new class prefix: __ 
