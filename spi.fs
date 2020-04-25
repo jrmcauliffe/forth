@@ -134,3 +134,13 @@ $2C 0 lcd_cmd RAMWR
   CS io-1!
   drop
 ;
+
+: setpixel ( colour row column -- ) \ print 16 bit value to pixel
+  $00 swap 2dup CASET
+  $00 swap 2dup RASET
+  RAMWR
+  ISDATA io-1!
+  CS io-0!
+  dup 8 rshift >spi >spi
+  CS io-1!
+;
