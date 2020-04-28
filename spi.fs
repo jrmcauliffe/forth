@@ -123,6 +123,23 @@ $2C 0 lcd_cmd RAMWR
   DISPON  
 ;
 
+160 Constant ROWS
+128 Constant COLS 
+500 Constant MAXITER
+
+\ View of complex plane
+-2  Constant IMIN
+2   Constant IMAX
+-2  Constant RMIN
+2   Constant RMAX
+
+: zmap ( n1 n2 -- df1 df2) \ Map (row, col) to point in complex view z (r, i)
+  swap 0 -rot 0 swap       \ convert to fixed point and swap row and col
+  0 RMAX RMIN - 0 ROWS f/ f* 0 RMIN d+ \ scale rows to real component
+  2SWAP
+  0 IMAX IMIN - 0 COLS f/ f* 0 IMIN d+ \ scal cols to imaginary component
+;
+
 : lcd-colour ( n -- ) \ write 565 colour
 
   $00 $00 $00 $7F CASET
@@ -130,7 +147,7 @@ $2C 0 lcd_cmd RAMWR
   RAMWR
   ISDATA io-1! 
   CS io-0!
-  128 160 * 0 do dup 8 rshift >spi dup >spi loop
+  ROWS COLS  * 0 do dup 8 rshift >spi dup >spi loop
   CS io-1!
   drop
 ;
@@ -144,3 +161,38 @@ $2C 0 lcd_cmd RAMWR
   dup 8 rshift >spi >spi
   CS io-1!
 ;
+
+: wipe ( colour -- ) \ scan across each row writing a pixel
+   ROWS 0 do
+    COLS 0 do
+      \ Grab complex number that represends this row/col
+
+      1 MAXITER do      \ count down from 
+        dup j i setpixel
+      -1 +loop
+    loop
+  loop
+  drop
+;
+
+: escaped? ( r i -- flag ) \ is absolute value of z < 2?
+  2dup f* 2swap 2dup f* d+ 0 4 d>
+;
+
+: mandel? ( zr zi -- flag) \ is this complex number in the mandelbrot set?
+  2over 2over              \ save copy of original point
+  MAXITER 0 do
+  2over 2over escaped? if i leave then \ if escaped, put iterations on stack
+  loop
+  2drop
+;
+: wipe2 ( colour -- ) \ scan across each row writing a pixel
+   ROWS 0 do
+    COLS 0 do
+      \ Grab complex number that represends this row/col
+        dup j i zmap mande? if j i setpixel else drop $0000 j i setpixel then
+    loop
+  loop
+  drop
+;
+
