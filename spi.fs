@@ -152,6 +152,26 @@ $2C 0 lcd_cmd RAMWR
   drop
 ;
 
+: zdup ( r i -- r i r i ) \ duplicate a complex number
+  2over 2over
+;
+: z+ ( ri r i -- r i ) \ add two complex numbers
+  2rot d+ 2-rot d+ 2swap
+;
+
+; zsquared  ( r i -- r i ) \ square a complex number
+  2over 2dup f* 2over 2dup f* d- 
+  2-rot f* 0 2 f*  
+;
+
+: fz ( r i r i -- r i ) \ c z -> z*z + c
+  zsquared z+
+;
+
+: z. ( r i -- ) \ print a complex number
+  2swap 3 f.n ." + " 3 f.n ." i"
+;
+
 : setpixel ( colour row column -- ) \ print 16 bit value to pixel
   $00 swap 2dup CASET
   $00 swap 2dup RASET
@@ -190,9 +210,10 @@ $2C 0 lcd_cmd RAMWR
    ROWS 0 do
     COLS 0 do
       \ Grab complex number that represends this row/col
-        dup j i zmap mande? if j i setpixel else drop $0000 j i setpixel then
+        dup j i zmap escaped? if j i setpixel else drop $0000 j i setpixel then
     loop
   loop
   drop
 ;
+
 
