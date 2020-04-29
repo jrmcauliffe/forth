@@ -209,18 +209,18 @@ $BFFF  0 2Constant RMAX \ 1.75
   4 0 do -rot 2drop loop \ Get rid of last z and c values from stack leaving i
 ;
 
+: scale-colour ( n -- n ) \ scale number of iterations to greyscale shade (assume 565 colour)
+  dup dup 5 lshift or 6 lshift or
+;
+
 : mandlebrot ( colour -- ) \ scan across each row writing a pixel
   lcd-init
   $0000 lcd-colour 
   ROWS 0 do
     COLS 0 do
       \ Grab complex number that represends this row/col
-        dup j i zmap mandel? MAXITER 1 - >= if j i setpixel else drop $0000 j i setpixel then
+        j i zmap mandel? scale-colour j i setpixel
     loop
   loop
-  drop
 ;
 
-: scale-colour ( n -- n ) \ scale number of iterations to greyscale shade (assume 565 colour)
-  dup dup 5 lshift or 6 lshift or
-;
