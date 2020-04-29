@@ -125,19 +125,19 @@ $2C 0 lcd_cmd RAMWR
 
 160 Constant ROWS
 128 Constant COLS 
-500 Constant MAXITER
+64 Constant MAXITER
 
 \ View of complex plane
--2  Constant IMIN
-2   Constant IMAX
--2  Constant RMIN
-2   Constant RMAX
+0     -1 2Constant IMIN
+0      1 2Constant IMAX
+$3FFF -2 2Constant RMIN \ -1.75
+$BFFF  0 2Constant RMAX \ 1.75
 
 : zmap ( n1 n2 -- df1 df2) \ Map (row, col) to point in complex view z (r, i)
   swap 0 -rot 0 swap       \ convert to fixed point and swap row and col
-  0 RMAX RMIN - 0 ROWS f/ f* 0 RMIN d+ \ scale rows to real component
+  RMAX RMIN d- 0 ROWS f/ f* RMIN d+ \ scale rows to real component
   2SWAP
-  0 IMAX IMIN - 0 COLS f/ f* 0 IMIN d+ \ scal cols to imaginary component
+  IMAX IMIN d- 0 COLS f/ f* IMIN d+ \ scal cols to imaginary component
 ;
 
 : lcd-colour ( n -- ) \ write 565 colour
@@ -152,23 +152,34 @@ $2C 0 lcd_cmd RAMWR
   drop
 ;
 
-: zdup ( r i -- r i r i ) \ duplicate a complex number
+: zdup ( z -- z z ) \ duplicate a complex number
   2over 2over
 ;
-: z+ ( ri r i -- r i ) \ add two complex numbers
+
+: zdrop ( z -- ) \ drop a complex value
+  2drop 2drop
+;
+
+: z+ ( z1 z2 -- z3 ) \ add two complex numbers
   2rot d+ 2-rot d+ 2swap
 ;
 
-; zsquared  ( r i -- r i ) \ square a complex number
+: zover ( z1 z2 -- z1 z2 z1 ) \ over for complex number
+  7 pick 7 pick 7 pick 7 pick
+;
+
+: zsquared  ( z1 -- z2 ) \ square a complex number
   2over 2dup f* 2over 2dup f* d- 
   2-rot f* 0 2 f*  
 ;
 
-: fz ( r i r i -- r i ) \ c z -> z*z + c
-  zsquared z+
+: fz ( z1 z2 -- z3 ) \ z c -> z*z + c
+  zover                 \ copy z as double doubles are hard to handle with stack ops
+  zsquared z+           \ square and add c
+  2rot 2drop 2rot 2drop \ drop initial z
 ;
 
-: z. ( r i -- ) \ print a complex number
+: z. ( z -- ) \ print a complex number
   2swap 3 f.n ." + " 3 f.n ." i"
 ;
 
@@ -182,38 +193,34 @@ $2C 0 lcd_cmd RAMWR
   CS io-1!
 ;
 
-: wipe ( colour -- ) \ scan across each row writing a pixel
-   ROWS 0 do
-    COLS 0 do
-      \ Grab complex number that represends this row/col
-
-      1 MAXITER do      \ count down from 
-        dup j i setpixel
-      -1 +loop
-    loop
-  loop
-  drop
-;
-
-: escaped? ( r i -- flag ) \ is absolute value of z < 2?
+: escaped? ( z -- flag ) \ is absolute value of z < 2?
   2dup f* 2swap 2dup f* d+ 0 4 d>
 ;
 
-: mandel? ( zr zi -- flag) \ is this complex number in the mandelbrot set?
-  2over 2over              \ save copy of original point
+: mandel? ( z -- flag) \ is this complex numberi c in the mandelbrot set?
+  \ zdup          \ save copy of original point
+  0 0 0 0       \ Initial z
+  0  
   MAXITER 0 do
-  2over 2over escaped? if i leave then \ if escaped, put iterations on stack
-  loop
-  2drop
+  drop
+  zdup escaped? if i leave then \ if escaped, put iterations on stack
+  zover fz       \ run iteration f(z) = z*z + c
+  i loop         \ leave i on top of stack
+  4 0 do -rot 2drop loop \ Get rid of last z and c values from stack leaving i
 ;
-: wipe2 ( colour -- ) \ scan across each row writing a pixel
-   ROWS 0 do
+
+: mandlebrot ( colour -- ) \ scan across each row writing a pixel
+  lcd-init
+  $0000 lcd-colour 
+  ROWS 0 do
     COLS 0 do
       \ Grab complex number that represends this row/col
-        dup j i zmap escaped? if j i setpixel else drop $0000 j i setpixel then
+        dup j i zmap mandel? MAXITER 1 - >= if j i setpixel else drop $0000 j i setpixel then
     loop
   loop
   drop
 ;
 
-
+: scale-colour ( n -- n ) \ scale number of iterations to greyscale shade (assume 565 colour)
+  dup dup 5 lshift or 6 lshift or
+;
