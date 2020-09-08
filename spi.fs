@@ -125,7 +125,7 @@ $2C 0 lcd_cmd RAMWR
 
 160 Constant ROWS
 128 Constant COLS 
-64 Constant MAXITER
+128 Constant MAXITER
 
 \ View of complex plane
 0     -1 2Constant IMIN
@@ -210,12 +210,15 @@ $BFFF  0 2Constant RMAX \ 1.75
 ;
 
 : scale-colour ( n -- n ) \ scale number of iterations to greyscale shade (assume 565 colour)
-  dup dup 5 lshift or 6 lshift or
+  MAXITER 64 /
+  * dup 1 rshift tuck \ One for each of RGB (565)
+  6 lshift or
+  5 lshift or
 ;
 
 : mandlebrot ( colour -- ) \ scan across each row writing a pixel
   lcd-init
-  $0000 lcd-colour 
+  $0000 lcd-colour  \ blank screen
   ROWS 0 do
     COLS 0 do
       \ Grab complex number that represends this row/col
