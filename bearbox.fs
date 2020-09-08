@@ -22,9 +22,13 @@ compiletoflash
 4 pin constant protary1          \ Rotary encoder switch1 p1.4
 5 pin constant protary2          \ Rotary encoder switch2 p1.5
 2 pin constant ptap              \ Free pin to test timer etc p2.2
+
+\ calculate timers etc
+8000 constant clk_khz            \ clock frequency
+500  constant led_hz             \ desired led frequency
+
 true constant debugmode
-100 constant tick                \ 1 percent duty cycle time
-60 constant timeout              \ 60 second timeout
+1800 constant timeout              \ timeout in seconds
 $0 variable buttonstate
 $0 variable rotary1state
 $0 variable rotary2state
@@ -37,7 +41,7 @@ red variable currentcolour
 
 : percentscaledwithgamma ( n1, n2 -- n2 ) \ n1 scaled by n2 %
   swap dup *  \ Simple squared gamma calc
-  swap 100 */ \ Scaled to compensate for different colour brightness
+  swap 100 u*/ \ Scaled to compensate for different colour brightness
 ;
 
 : updateled ( n colourvar -- ) \ Set scaled value for timer constant
@@ -70,12 +74,22 @@ red variable currentcolour
 ;
 
 : sleep? ( -- ) \ should we sleep?
-  sleepsecs @ timeout u>
+  sleepsecs @ timeout =
 ;
 
-: sleepreset ( -- ) \ reset the sleep timer
-  0 sleepticks !
+: sleepreset ( -- ) \ reset the sleep timer and unfade
+  1 sleepticks !
   0 sleepsecs !
+  red @ red updateled
+  blue @ blue updateled
+  green @ green updateled
+;
+
+: dimleds ( -- ) \ dim the leds proportional to time left
+  timeout sleepsecs @ - red @ timeout u*/ red updateled
+  timeout sleepsecs @ - green @ timeout u*/ green updateled
+  timeout sleepsecs @ - blue @ timeout u*/ blue updateled
+
 ;
 
 : printstatus ( -- ) \ Show current rgb percentage values
@@ -111,7 +125,10 @@ red variable currentcolour
 
 : timerA0-irq-handler \ rotary encoder debounce code
   1 sleepticks +! \ inc sleep timer then check to see whether we sleep
-  sleepticks @ 1250 u> if 1 sleepsecs +! 0 sleepticks ! then
+  sleepticks @ led_hz = if
+  1 sleepsecs +! 0 sleepticks !
+  dimleds
+  then
   buttonstate @ shl pbutton P1IN cbit@ 1 and or buttonstate !
   buttonstate @ $8000 = if buttonpress then
   rotary1state @ shl protary1 P1IN cbit@ not 1 and or $FE00 or rotary1state !
@@ -139,17 +156,17 @@ red variable currentcolour
   pbutton P1IE cbis! \ Enable interrupts on pushbutton only
 
   ['] timerA0-irq-handler irq-timera0 ! \ register handler for timer interrupt
-  ['] port1-irq-handler irq-port1 ! \ register handler for timer interrupt
-  $210       TA0CTL !   \ SMCLK/1 up mode interrupts not enabled
-  100 tick * TA0CCR0 !  \ Set to 8Mhz / 10000 -> 0.8 ms
-  $90        TA0CCTL0 ! \ toggle mode / interrupts enabled
-  $10E0      TA0CCTL1 ! \ CCI1B / set\reset mode / interrupts disabled
+  ['] port1-irq-handler irq-port1 !     \ register handler for timer interrupt
+  $210                    TA0CTL !      \ SMCLK/1 up mode interrupts not enabled
+  clk_khz 1000 led_hz u*/ TA0CCR0 !     \ Set CCR0 for desired led refresh rate
+  $90                     TA0CCTL0 !    \ toggle mode / interrupts enabled
+  $10E0                   TA0CCTL1 !    \ CCI1B / set\reset mode / interrupts disabled
 
-  $210       TA1CTL !   \ SMCLK/1 up mode interrupts disabled
-  100 tick * TA1CCR0 !  \ Set to 8Mhz 10000 -> 0.8 ms
-  $80        TA1CCTL0 ! \ CCI0A / toggle mode / interrupts enabled
-  $E0        TA1CCTL1 ! \ CCI1A / set\reset mode / interrupts disabled
-  $E0        TA1CCTL2 ! \ CCI2A / set\reset mode / interrupts disabled
+  $210                    TA1CTL !      \ SMCLK/1 up mode interrupts disabled
+  clk_khz 1000 led_hz u*/ TA1CCR0 !     \ Set CCR0 for desire led refresh rate
+  $80                     TA1CCTL0 !    \ CCI0A / toggle mode / interrupts enabled
+  $E0                     TA1CCTL1 !    \ CCI1A / set\reset mode / interrupts disabled
+  $E0                     TA1CCTL2 !    \ CCI2A / set\reset mode / interrupts disabled
 
   \ Flash primary colours
   red flash
@@ -165,9 +182,9 @@ red variable currentcolour
   debugmode not if lpm1 then \ Put into low power mode if not debugging
 ;
 
-: init ( -- ) \ Launch program if no keypress after 1 sec
+: init ( -- ) \ Launch program if no keypress after 3 sec
   ." Press <enter> for console"
-  10 0 do ." ." 100 ms key? if leave then loop
+  10 0 do ." ." 300 ms key? if leave then loop
   key? if else myinit then
 ; 
 
