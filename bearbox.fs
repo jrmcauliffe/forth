@@ -24,11 +24,12 @@ compiletoflash
 2 pin constant ptap              \ Free pin to test timer etc p2.2
 true constant debugmode
 100 constant tick                \ 1 percent duty cycle time
-60000 constant timeout           \ 60 second timeout
+60 constant timeout              \ 60 second timeout
 $0 variable buttonstate
 $0 variable rotary1state
 $0 variable rotary2state
-0 variable sleeptimer
+0 variable sleepsecs
+0 variable sleepticks
 0 variable red
 0 variable green
 0 variable blue
@@ -69,10 +70,12 @@ red variable currentcolour
 ;
 
 : sleep? ( -- ) \ should we sleep?
-  sleeptimer @ timeout u>
+  sleepsecs @ timeout u>
 ;
 
-: sleep ( -- ) \ Turn off leds and go to sleep
+: sleepreset ( -- ) \ reset the sleep timer
+  0 sleepticks !
+  0 sleepsecs !
 ;
 
 : printstatus ( -- ) \ Show current rgb percentage values
@@ -90,25 +93,25 @@ red variable currentcolour
 ;
 
 : buttonpress
-  $0000 sleeptimer !
+  sleepreset
   nextcolour
 \  debugmode if ." button" printstatus cr then
 ;
 
 : cw
-  0 sleeptimer !
+  sleepreset
   currentcolour @ dutycycle> 5 + currentcolour @ >dutycycle
 \  debugmode if ." cw    " printstatus cr then
 ;
 : ccw
-  0 sleeptimer !
+  sleepreset
   currentcolour @ dutycycle> 5 - currentcolour @ >dutycycle
 \  debugmode if ." ccw   " printstatus cr then
 ;
 
 : timerA0-irq-handler \ rotary encoder debounce code
-  1 sleeptimer +! \ inc sleep timer then check to see whether we sleep
-  
+  1 sleepticks +! \ inc sleep timer then check to see whether we sleep
+  sleepticks @ 1250 u> if 1 sleepsecs +! 0 sleepticks ! then
   buttonstate @ shl pbutton P1IN cbit@ 1 and or buttonstate !
   buttonstate @ $8000 = if buttonpress then
   rotary1state @ shl protary1 P1IN cbit@ not 1 and or $FE00 or rotary1state !
@@ -116,7 +119,7 @@ red variable currentcolour
   rotary2state @ shl protary2 P1IN cbit@ not 1 and or $FE00 or rotary2state !
   rotary2state @ $FF00 = rotary2state @ rotary1state @ > and if ccw then
   sleep? if
-  $0000 sleeptimer !
+  sleepreset
   pgreen pred or P2SEL cbic! pblue P1SEL cbic! \ Turn off special function
   pgreen pred or P2OUT cbic! pblue P1OUT cbic! \ clear
   lpm4 then
