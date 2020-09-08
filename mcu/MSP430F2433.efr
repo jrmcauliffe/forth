@@ -234,7 +234,7 @@
 
 0440 equ TA3CTL \ Timer3_A2 Control Register (16)
          BIT0     equ TAIFG
-         BAIT1     equ TAIE
+         BIT1     equ TAIE
          BIT2     equ TACLR
          \ unused
          BIT4 2 bits: MC_
