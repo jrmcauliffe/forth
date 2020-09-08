@@ -12,7 +12,6 @@ compiletoflash
 \res export P1IN P1OUT P1SEL P1DIR P1IE P1IFG P1REN P2SEL P2DIR P2OUT
 
 #include ms.fs
-#include gammatable.fs
 
 \ Project pin assignments
 : pin 1 swap lshift 1-foldable ; \ Create output pin mask(s)
@@ -24,7 +23,7 @@ compiletoflash
 5 pin constant protary2          \ Rotary encoder switch2 p1.5
 2 pin constant ptap              \ Free pin to test timer etc p2.2
 true constant debugmode
-80 constant tick                 \ 1 percent duty cycle time
+100 constant tick                \ 1 percent duty cycle time
 60000 constant timeout           \ 60 second timeout
 $0 variable buttonstate
 $0 variable rotary1state
@@ -36,8 +35,8 @@ $0 variable rotary2state
 red variable currentcolour
 
 : percentscaledwithgamma ( n1, n2 -- n2 ) \ n1 scaled by n2 %
-  tick 100 */ \ Scaled tick length
-  swap dup gammatable swap cells + @ -rot * $FFFF u*/ \ Scale original % with Gamma table
+  swap dup *  \ Simple squared gamma calc
+  swap 100 */ \ Scaled to compensate for different colour brightness
 ;
 
 : updateled ( n colourvar -- ) \ Set scaled value for timer constant
@@ -76,11 +75,11 @@ red variable currentcolour
 : sleep ( -- ) \ Turn off leds and go to sleep
 ;
 
-\ : printstatus ( -- ) \ Show current rgb percentage values
-\  ."  ( r :" red dutycycle> . ." - " TA1CCR2 @ .
-\  ." g :" green dutycycle> . ." - " TA1CCR1 @ .
-\  ." b :" blue dutycycle>  . ." - " TA0CCR1 @ . ." ) "
-\ ;
+: printstatus ( -- ) \ Show current rgb percentage values
+  ."  ( r :" red dutycycle> . ." - " TA1CCR2 @ .
+  ." g :" green dutycycle> . ." - " TA1CCR1 @ .
+  ." b :" blue dutycycle>  . ." - " TA0CCR1 @ . ." ) "
+;
 
 : nextcolour \ Cycle through the colours
   currentcolour @ case
@@ -97,12 +96,12 @@ red variable currentcolour
 ;
 
 : cw
-  $0000 sleeptimer !
+  0 sleeptimer !
   currentcolour @ dutycycle> 5 + currentcolour @ >dutycycle
 \  debugmode if ." cw    " printstatus cr then
 ;
 : ccw
-  $0000 sleeptimer !
+  0 sleeptimer !
   currentcolour @ dutycycle> 5 - currentcolour @ >dutycycle
 \  debugmode if ." ccw   " printstatus cr then
 ;
@@ -139,12 +138,12 @@ red variable currentcolour
   ['] timerA0-irq-handler irq-timera0 ! \ register handler for timer interrupt
   ['] port1-irq-handler irq-port1 ! \ register handler for timer interrupt
   $210       TA0CTL !   \ SMCLK/1 up mode interrupts not enabled
-  100 tick * TA0CCR0 !  \ Set to 8Mhz * 8000 -> 1ms
+  100 tick * TA0CCR0 !  \ Set to 8Mhz / 10000 -> 0.8 ms
   $90        TA0CCTL0 ! \ toggle mode / interrupts enabled
   $10E0      TA0CCTL1 ! \ CCI1B / set\reset mode / interrupts disabled
 
   $210       TA1CTL !   \ SMCLK/1 up mode interrupts disabled
-  100 tick * TA1CCR0 !  \ Set to 8Mhz * 8000 -> 1ms
+  100 tick * TA1CCR0 !  \ Set to 8Mhz 10000 -> 0.8 ms
   $80        TA1CCTL0 ! \ CCI0A / toggle mode / interrupts enabled
   $E0        TA1CCTL1 ! \ CCI1A / set\reset mode / interrupts disabled
   $E0        TA1CCTL2 ! \ CCI2A / set\reset mode / interrupts disabled
