@@ -12,16 +12,17 @@ compiletoflash
 \res export P1IN P1OUT P1SEL P1DIR P1IE P1IFG P1REN P2SEL P2DIR P2OUT
 
 #include ms.fs
+#include digital-io.fs
 
 \ Project pin assignments
 : pin 1 swap lshift 1-foldable ; \ Create output pin mask(s)
-1 pin constant pgreen            \ LED Green p2.1
-6 pin constant pblue             \ LED Blue  p1.6
-4 pin constant pred              \ LED Red   p2.4
-7 pin constant pbutton           \ Rotary encoder button  p1.7
-4 pin constant protary1          \ Rotary encoder switch1 p1.4
-5 pin constant protary2          \ Rotary encoder switch2 p1.5
-2 pin constant ptap              \ Free pin to test timer etc p2.2
+2 1 io constant pgreen           \ LED Green p2.1
+1 6 io constant pblue            \ LED Blue  p1.6
+2 4 io constant pred             \ LED Red   p2.4
+1 7 io constant pbutton          \ Rotary encoder button  p1.7
+1 4 io constant protary1         \ Rotary encoder switch1 p1.4
+1 5 io constant protary2         \ Rotary encoder switch2 p1.5
+
 true constant debugmode
 100 constant tick                \ 1 percent duty cycle time
 60000 constant timeout           \ 60 second timeout
@@ -130,8 +131,14 @@ red variable currentcolour
 ;
 
 : myinit
-  pgreen pred or P2DIR cbis! pblue P1DIR cbis! \ Set red, green an blue pins to output
-  pgreen pred or P2SEL cbis! pblue P1SEL cbis! \ Set red, green an blue pins to special
+  OUTMODE-SP1 pred io-mode!
+  OUTMODE-SP1 pgreen io-mode!
+  OUTMODE-SP1 pblue io-mode!
+
+  INMODE-PU pbutton io-mode!
+  INMODE-PU protary1 io-mode!
+  INMODE-PU protary2 io-mode!
+
   pbutton protary1 or protary2 or P1REN cbis! \ Enable pullup on pushbuttons
   pbutton P1IE cbis! \ Enable interrupts on pushbutton only
 
