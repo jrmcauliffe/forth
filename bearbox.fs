@@ -109,18 +109,18 @@ red variable currentcolour
 : buttonpress
   sleepreset
   nextcolour
-\  debugmode if ." button" printstatus cr then
+  debugmode if ." button" printstatus cr then
 ;
 
 : cw
   sleepreset
-  currentcolour @ dutycycle> 5 + currentcolour @ >dutycycle
-\  debugmode if ." cw    " printstatus cr then
+  currentcolour @ dutycycle> 2 + currentcolour @ >dutycycle
+  debugmode if ." cw    " printstatus cr then
 ;
 : ccw
   sleepreset
-  currentcolour @ dutycycle> 5 - currentcolour @ >dutycycle
-\  debugmode if ." ccw   " printstatus cr then
+  currentcolour @ dutycycle> 2 - currentcolour @ >dutycycle
+  debugmode if ." ccw   " printstatus cr then
 ;
 
 : timerA0-irq-handler \ rotary encoder debounce code
@@ -131,10 +131,10 @@ red variable currentcolour
   then
   buttonstate @ shl pbutton P1IN cbit@ 1 and or buttonstate !
   buttonstate @ $8000 = if buttonpress then
-  rotary1state @ shl protary1 P1IN cbit@ not 1 and or $FE00 or rotary1state !
-  rotary1state @ $FF00 = rotary1state @ rotary2state @ > and if cw then
-  rotary2state @ shl protary2 P1IN cbit@ not 1 and or $FE00 or rotary2state !
-  rotary2state @ $FF00 = rotary2state @ rotary1state @ > and if ccw then
+  rotary1state @ shl protary1 P1IN cbit@ not 1 and or $FFE0 or rotary1state !
+  rotary1state @ $FFFF = rotary1state @ rotary2state @ > and if ccw then
+  rotary2state @ shl protary2 P1IN cbit@ not 1 and or $FFE0 or rotary2state !
+  rotary2state @ $FFFF = rotary2state @ rotary1state @ > and if cw then
   sleep? if
   sleepreset
   pgreen pred or P2SEL cbic! pblue P1SEL cbic! \ Turn off special function
@@ -174,9 +174,9 @@ red variable currentcolour
   blue flash
 
   \ Set inital duty cycles
-  10 red >dutycycle
-  10 green >dutycycle
-  10 blue >dutycycle
+  30 red >dutycycle
+  30 green >dutycycle
+  30 blue >dutycycle
 
   eint \ Enable interrupts
   debugmode not if lpm1 then \ Put into low power mode if not debugging
