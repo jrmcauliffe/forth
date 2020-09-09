@@ -26,6 +26,9 @@ compiletoflash
 \ calculate timers etc
 8000 constant clk_khz            \ clock frequency
 500  constant led_hz             \ desired led frequency
+15   constant debounce_ms
+debounce_ms 1000 led_hz / / constant debounce_ticks
+
 
 true constant debugmode
 1800 constant timeout              \ timeout in seconds
@@ -131,10 +134,10 @@ red variable currentcolour
   then
   buttonstate @ shl pbutton P1IN cbit@ 1 and or buttonstate !
   buttonstate @ $8000 = if buttonpress then
-  rotary1state @ shl protary1 P1IN cbit@ not 1 and or $FFE0 or rotary1state !
-  rotary1state @ $FFFF = rotary1state @ rotary2state @ > and if ccw then
-  rotary2state @ shl protary2 P1IN cbit@ not 1 and or $FFE0 or rotary2state !
-  rotary2state @ $FFFF = rotary2state @ rotary1state @ > and if cw then
+  rotary1state @ shl protary1 P1IN cbit@ 1 and or $FFE0 or rotary1state !
+  rotary1state @ $FFFF = rotary1state @ rotary2state @ > and if cw then
+  rotary2state @ shl protary2 P1IN cbit@ 1 and or $FFE0 or rotary2state !
+  rotary2state @ $FFFF = rotary2state @ rotary1state @ > and if ccw then
   sleep? if
   sleepreset
   pgreen pred or P2SEL cbic! pblue P1SEL cbic! \ Turn off special function
