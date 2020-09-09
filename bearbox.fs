@@ -13,6 +13,9 @@ compiletoflash
 
 #include ms.fs
 
+: sqrt-closer ( square guess -- square guess adjustment) 2dup / over - 2 / ;
+: sqrt ( square -- root ) 1 begin sqrt-closer dup while + repeat drop nip ;
+
 \ Project pin assignments
 : pin 1 swap lshift 1-foldable ; \ Create output pin mask(s)
 1 pin constant pgreen            \ LED Green p2.1
@@ -26,12 +29,18 @@ compiletoflash
 \ calculate timers etc
 8000 constant clk_khz            \ clock frequency
 500  constant led_hz             \ desired led frequency
-15   constant debounce_ms
-debounce_ms 1000 led_hz / / constant debounce_ticks
 
+\ Debouncing contstants
+8 constant debounce_ms
+debounce_ms 1000 led_hz / / constant debounce_ticks
+$FFFF debounce_ticks 1 - lshift constant debounce_check
+debounce_check shl constant debounce_mask
 
 true constant debugmode
-1800 constant timeout              \ timeout in seconds
+600  constant timeout              \ timeout in seconds
+5    constant colourincrement
+
+\ Variables
 $0 variable buttonstate
 $0 variable rotary1state
 $0 variable rotary2state
@@ -117,27 +126,29 @@ red variable currentcolour
 
 : cw
   sleepreset
-  currentcolour @ dutycycle> 2 + currentcolour @ >dutycycle
+  currentcolour @ dutycycle> colourincrement + currentcolour @ >dutycycle
   debugmode if ." cw    " printstatus cr then
 ;
 : ccw
   sleepreset
-  currentcolour @ dutycycle> 2 - currentcolour @ >dutycycle
+  currentcolour @ dutycycle> colourincrement - currentcolour @ >dutycycle
   debugmode if ." ccw   " printstatus cr then
 ;
 
 : timerA0-irq-handler \ rotary encoder debounce code
   1 sleepticks +! \ inc sleep timer then check to see whether we sleep
   sleepticks @ led_hz = if
-  1 sleepsecs +! 0 sleepticks !
-  dimleds
+    1 sleepsecs +! 0 sleepticks !
+    dimleds
   then
-  buttonstate @ shl pbutton P1IN cbit@ 1 and or buttonstate !
-  buttonstate @ $8000 = if buttonpress then
-  rotary1state @ shl protary1 P1IN cbit@ 1 and or $FFE0 or rotary1state !
-  rotary1state @ $FFFF = rotary1state @ rotary2state @ > and if cw then
-  rotary2state @ shl protary2 P1IN cbit@ 1 and or $FFE0 or rotary2state !
-  rotary2state @ $FFFF = rotary2state @ rotary1state @ > and if ccw then
+  \ Update debounce statuses
+  buttonstate @ shl pbutton P1IN cbit@ or debounce_mask or buttonstate !
+  rotary1state @ shl protary1 P1IN cbit@ or debounce_mask or rotary1state !
+  rotary2state @ shl protary2 P1IN cbit@ or debounce_mask or rotary2state !
+  \ Have we debounced?
+  buttonstate @ debounce_check = if buttonpress then
+  rotary1state @ debounce_check = rotary2state @ debounce_mask = and if cw then
+  rotary2state @ debounce_check = rotary1state @ debounce_mask = and if ccw then
   sleep? if
   sleepreset
   pgreen pred or P2SEL cbic! pblue P1SEL cbic! \ Turn off special function
