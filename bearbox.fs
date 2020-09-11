@@ -29,6 +29,7 @@ compiletoflash
 \ calculate timers etc
 8000 constant clk_khz            \ clock frequency
 500  constant led_hz             \ desired led frequency
+clk_khz 1000 led_hz u*/ sqrt constant normalled100
 
 \ Debouncing contstants
 8 constant debounce_ms
@@ -37,8 +38,8 @@ $FFFF debounce_ticks 1 - lshift constant debounce_check
 debounce_check shl constant debounce_mask
 
 true constant debugmode
-600  constant timeout              \ timeout in seconds
-5    constant colourincrement
+3600 constant timeout              \ timeout in seconds
+1    constant colourincrement
 
 \ Variables
 $0 variable buttonstate
@@ -57,10 +58,11 @@ red variable currentcolour
 ;
 
 : updateled ( n colourvar -- ) \ Set scaled value for timer constant
+  swap normalled100 100 u*/ swap \ scale to timer with gamma
   case
     red of 100 percentscaledwithgamma TA1CCR2 ! endof
-    green of 25 percentscaledwithgamma TA1CCR1 ! endof
-    blue of 70 percentscaledwithgamma TA0CCR1 ! endof
+    green of 100 percentscaledwithgamma TA1CCR1 ! endof
+    blue of 100 percentscaledwithgamma TA0CCR1 ! endof
   endcase
 ;
 
@@ -188,9 +190,9 @@ red variable currentcolour
   blue flash
 
   \ Set inital duty cycles
-  30 red >dutycycle
-  30 green >dutycycle
-  30 blue >dutycycle
+  50 red >dutycycle
+  50 green >dutycycle
+  50 blue >dutycycle
 
   eint \ Enable interrupts
   debugmode not if lpm1 then \ Put into low power mode if not debugging
