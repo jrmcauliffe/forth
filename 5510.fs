@@ -1,5 +1,5 @@
 \res MCU: MSP430F5510
-\res export P4OUT P4DIR P4REN
+\res export POUT PDIR PREN PDS PSEL0 PSEL1 P4OUT P4DIR P4REN
 
 #include ms.fs
 #include digital-io.fs

@@ -1,6 +1,6 @@
 \res MCU: MSP430F5510
 
-\res export UCB1CTL0 UCB1CTL1 UCSWRST UCSYNC UCB1TXBUF UCB1RXBUF UCB1BR0 UCB1BR1
+\res export POUT PDIR PREN PDS PSEL0 PSEL1 UCB1CTL0 UCB1CTL1 UCSWRST UCSYNC UCB1TXBUF UCB1RXBUF UCB1BR0 UCB1BR1
 #include ms.fs
 #include digital-io.fs
 
@@ -60,11 +60,11 @@
 ;
 
 : spi-init ( -- )  \ set up hardware SPI
-  OUTMODE-LS RESET  io-mode!
-  OUTMODE-SP MOSI   io-mode!
-  OUTMODE-LS CS     io-mode!
-  OUTMODE-SP SCLK   io-mode!
-  OUTMODE-LS ISDATA io-mode!
+  OUTMODE-LS  RESET  io-mode!
+  OUTMODE-SP0 MOSI   io-mode!
+  OUTMODE-LS  CS     io-mode!
+  OUTMODE-SP0 SCLK   io-mode!
+  OUTMODE-LS  ISDATA io-mode!
 
   \ Reset UCS
   UCSWRST UCB1CTL1 c!
