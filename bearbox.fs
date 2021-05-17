@@ -38,8 +38,8 @@ $FFFF debounce_ticks 1 - lshift constant debounce_check
 debounce_check shl constant debounce_mask
 
 true constant debugmode
-3600 constant timeout              \ timeout in seconds
-1    constant colourincrement
+600   constant timeout              \ timeout in seconds
+5    constant stepinc
 
 \ Variables
 $0 variable buttonstate
@@ -47,14 +47,14 @@ $0 variable rotary1state
 $0 variable rotary2state
 0 variable sleepsecs
 0 variable sleepticks
-0 variable red
-0 variable green
-0 variable blue
-red variable currentcolour
+50 variable red
+50 variable green
+50 variable blue
+50 variable pulse
+red variable currentvar
 
 : percentscaledwithgamma ( n1, n2 -- n2 ) \ n1 scaled by n2 %
-  swap dup *  \ Simple squared gamma calc
-  swap 100 u*/ \ Scaled to compensate for different colour brightness
+  drop dup *  \ Simple squared gamma calc
 ;
 
 : updateled ( n colourvar -- ) \ Set scaled value for timer constant
@@ -66,96 +66,78 @@ red variable currentcolour
   endcase
 ;
 
-: >dutycycle ( n colourvar -- ) \ Set desired percent for given led pinning between 0 and 100 %
-  swap 100 min 0 max swap
-  2dup ! updateled
+: step ( fn var -- )             \ alter var in response to turn
+  dup -rot                       \ ( var fn var )
+  @ stepinc rot execute          \ apply function with increment
+  100 min 0 max                  \ clamp between 0 and 100
+  swap !                         \ write out
 ;
 
-: dutycycle> ( -- n) \ Fetch desired percent for given led
-  @
-;
+: dimled ( colourvar -- )
+  dup @                      \ get current value of colour
+  currentvar @ case
+    pulse of                 \ prescale if pulse
+\      sleepsecs @ 10 * pulse @  u/mod drop pulse @ swap
+\      led_hz * sleepticks @ + -rot 1 + led_hz * u*/
+       sleepsecs @ 2 u/mod drop if sleepticks @ else 500 sleepticks @ - then led_hz u*/
+    endof
+  endcase
 
-: on ( colourvar -- ) \ Turn led on
-  100 swap >dutycycle
-;
-
-: off ( coulourvar -- ) \ Turn led off
-  0 swap >dutycycle
-;
-
-: flash ( colourvar -- ) \ Briefly turn on then off
-  dup on 200 ms off
-;
-
-: sleep? ( -- ) \ should we sleep?
-  sleepsecs @ timeout =
-;
-
-: sleepreset ( -- ) \ reset the sleep timer and unfade
-  1 sleepticks !
-  0 sleepsecs !
-  red @ red updateled
-  blue @ blue updateled
-  green @ green updateled
+  \ Now scale for overall brightness
+  timeout sleepsecs @ - \ Time remaing
+  swap timeout u*/    \ Scale
+  swap updateled        \ Write
 ;
 
 : dimleds ( -- ) \ dim the leds proportional to time left
-  timeout sleepsecs @ - red @ timeout u*/ red updateled
-  timeout sleepsecs @ - green @ timeout u*/ green updateled
-  timeout sleepsecs @ - blue @ timeout u*/ blue updateled
-
+  red dimled
+  blue dimled
+  green dimled
+;
+: sleepreset ( -- ) \ reset the sleep timer and unfade
+  1 sleepticks !
+  0 sleepsecs !
+  dimleds
 ;
 
-: printstatus ( -- ) \ Show current rgb percentage values
-  ."  ( r :" red dutycycle> . ." - " TA1CCR2 @ .
-  ." g :" green dutycycle> . ." - " TA1CCR1 @ .
-  ." b :" blue dutycycle>  . ." - " TA0CCR1 @ . ." ) "
-;
 
-: nextcolour \ Cycle through the colours
-  currentcolour @ case
-    red of green currentcolour ! endof
-    green of blue currentcolour ! endof
-    blue of red currentcolour ! endof
+: nextvar \ Cycle through the colours
+  currentvar @ case
+    red of green currentvar ! endof
+    green of blue currentvar ! endof
+    blue of pulse currentvar ! endof
+    pulse of red currentvar ! endof
   endcase
-;
-
-: buttonpress
-  sleepreset
-  nextcolour
-  debugmode if ." button" printstatus cr then
-;
-
-: cw
-  sleepreset
-  currentcolour @ dutycycle> colourincrement + currentcolour @ >dutycycle
-  debugmode if ." cw    " printstatus cr then
-;
-: ccw
-  sleepreset
-  currentcolour @ dutycycle> colourincrement - currentcolour @ >dutycycle
-  debugmode if ." ccw   " printstatus cr then
 ;
 
 : timerA0-irq-handler \ rotary encoder debounce code
   1 sleepticks +! \ inc sleep timer then check to see whether we sleep
+\  sleepticks 20 u/mod drop 0 = if dimleds then
+ dimleds
   sleepticks @ led_hz = if
     1 sleepsecs +! 0 sleepticks !
-    dimleds
   then
   \ Update debounce statuses
   buttonstate @ shl pbutton P1IN cbit@ or debounce_mask or buttonstate !
   rotary1state @ shl protary1 P1IN cbit@ or debounce_mask or rotary1state !
   rotary2state @ shl protary2 P1IN cbit@ or debounce_mask or rotary2state !
   \ Have we debounced?
-  buttonstate @ debounce_check = if buttonpress then
-  rotary1state @ debounce_check = rotary2state @ debounce_mask = and if cw then
-  rotary2state @ debounce_check = rotary1state @ debounce_mask = and if ccw then
-  sleep? if
+  \ Button
+  buttonstate @ debounce_check = if sleepreset nextvar then
+  \ Rotary Encoder
+  rotary1state @ debounce_check = rotary2state @ debounce_mask = and if
+    sleepreset ['] + currentvar @ step
+  then
+  rotary2state @ debounce_check = rotary1state @ debounce_mask = and if
+    sleepreset ['] - currentvar @ step
+  then
+
+  sleepsecs @ timeout = if \ sleep?
   sleepreset
   pgreen pred or P2SEL cbic! pblue P1SEL cbic! \ Turn off special function
   pgreen pred or P2OUT cbic! pblue P1OUT cbic! \ clear
   lpm4 then
+
 ;
 
 : port1-irq-handler \ wake from sleep on button
@@ -183,16 +165,6 @@ red variable currentcolour
   $80                     TA1CCTL0 !    \ CCI0A / toggle mode / interrupts enabled
   $E0                     TA1CCTL1 !    \ CCI1A / set\reset mode / interrupts disabled
   $E0                     TA1CCTL2 !    \ CCI2A / set\reset mode / interrupts disabled
-
-  \ Flash primary colours
-  red flash
-  green flash
-  blue flash
-
-  \ Set inital duty cycles
-  50 red >dutycycle
-  50 green >dutycycle
-  50 blue >dutycycle
 
   eint \ Enable interrupts
   debugmode not if lpm1 then \ Put into low power mode if not debugging
