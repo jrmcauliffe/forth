@@ -227,3 +227,9 @@ $BFFF  0 2Constant RMAX \ 1.75
   loop
 ;
 
+: init ( -- ) \ Launch program if no keypress after 3 sec
+  ." Press <enter> for console"
+  10 0 do ." ." 300 ms key? if leave then loop
+  key? if else mandlebrot then
+;
+
