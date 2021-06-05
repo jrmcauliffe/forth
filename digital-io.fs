@@ -1,3 +1,5 @@
+\res export POUT PDIR PREN PDS PSEL0 PSEL1
+
 $200 constant PBASE
 $1   constant ODDOFFSET
 $20  constant EVENOFFSET
