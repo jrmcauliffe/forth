@@ -1,8 +1,5 @@
-\res MCU: MSP430F5510
-
 \res export TA0CTL TA1CTL TA0CCR1 TA0CCTL1
 
-#include ms.fs
 #include digital-io.fs
 
 \ Configure servo type parameters
@@ -26,7 +23,7 @@
 
 : init_servo ( servo -- )        \ Initialise timers for servo
   drop drop                      \ ignore timig config for setup
-  rot OUTMODE-SP swap io-mode!   \ set io pin to output special function
+  rot OUTMODE-SP0 swap io-mode!  \ set io pin to output special function
   swap dup dup                   \ two copies of timer base  
   $2D0 swap !                    \ SMCLK/8 up mode interrupts not enabled
   20000 swap $12 + !             \ TAxCCR0 At 1Mhz -> 20ms
