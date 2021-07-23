@@ -70,6 +70,19 @@
          BIT3 equ UCB0TXIFG
 
 \ ---
+\ ---
+0000 equ PIN
+0002 equ POUT
+0004 equ PDIR
+0006 equ PREN
+0008 equ PDS
+000A equ PSEL0
+000C equ PSEL1
+000E equ PIV
+0016 equ PSELC
+0018 equ PIES
+001A equ PIE
+001C equ PIFG
 
 \ Port P1
 
