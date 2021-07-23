@@ -37,8 +37,7 @@ debounce_ms 1000 led_hz / / constant debounce_ticks
 $FFFF debounce_ticks 1 - lshift constant debounce_check
 debounce_check shl constant debounce_mask
 
-true constant debugmode
-600   constant timeout              \ timeout in seconds
+600  constant timeout              \ timeout in seconds
 5    constant stepinc
 
 \ Variables
@@ -125,14 +124,12 @@ $0 variable rotary2state
   sleepreset
   pgreen pred or P2SEL cbic! pblue P1SEL cbic! \ Turn off special function
   pgreen pred or P2OUT cbic! pblue P1OUT cbic! \ clear
-  lpm4 then
+  then
 ;
 
 : port1-irq-handler \ wake from sleep on button
   pbutton P1IFG cbic! \ Clear interrupt flags
-  wakeup
   pgreen pred or P2SEL cbis! pblue P1SEL cbis! \ Set red, green an blue pins to special
-  debugmode not if lpm1 then
 ;
 
 : myinit
@@ -155,7 +152,6 @@ $0 variable rotary2state
   $E0                     TA1CCTL2 !    \ CCI2A / set\reset mode / interrupts disabled
 
   eint \ Enable interrupts
-  debugmode not if lpm1 then \ Put into low power mode if not debugging
 ;
 
 : init ( -- ) \ Launch program if no keypress after 3 sec
