@@ -69,6 +69,21 @@
          BIT2 equ UCB0RXIFG
          BIT3 equ UCB0TXIFG
 
+\ Clocks
+0180 equ CSCTL0
+0182 equ CSCTL1
+0184 equ CSCTL2
+0186 equ CSCTL3
+0188 equ CSCTL4
+018A equ CSCTL5
+018C equ CSCTL6
+018E equ CSCTL7
+0190 equ CSCTL8
+
+0160 equ SYSCFG0
+0162 equ SYSCFG1
+0164 equ SYSCFG2
+
 \ ---
 \ ---
 0000 equ PIN
@@ -296,7 +311,7 @@
          BIT11 2 bits: ADC10SHT_
          BIT13 3 bits: SREF_
 
-0702 equ ADC10CTL1  \ ADC control register 1  (16)
+0702 equ ADCCTL1  \ ADC control register 1  (16)
          BIT0      equ ADC10BUSY
          BIT1  2 bits: CONSEQ_
          BIT3  2 bits: ADC10SSEL_
@@ -309,7 +324,7 @@
 0704 equ ADCCTL2     \ ADC control register 2 (16)
 0706 equ ADCLO       \ ADC window comparator low threshold
 0708 equ ADOHI       \ ADC window comparator high threshold
-070A equ ADCMEMCTL0  \ ADC memory control 0 
+070A equ ADCMCTL0    \ ADC memory control 0
 0712 equ ADCMEM0     \ ADC Conversion-Memory
 071A equ ADCIE       \ ADC interrupt enable
 071C equ ADCIFG      \ ADC interrupt flags
