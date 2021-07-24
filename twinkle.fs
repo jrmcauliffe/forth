@@ -17,6 +17,9 @@ compiletoflash
 1 1 io constant pGreen
 1 3 io constant pAnalog
 3 0 io constant pAnalogPower
+100 constant darkcutout
+60 constant timeout
+timeout variable remaining
 
 : sample \ ( -- u )  Sample pin
   pAnalogPower io-1!
@@ -28,11 +31,16 @@ compiletoflash
   pAnalogPower io-0!
 ;
 
-
 : tick-irq-handler
-  sample 100 < if pGreen io-1! else pGreen io-0! then
+  \ If on, then decrement timer
+  pGreen io@ if remaining @ 1- remaining ! then
+  \ if timed out reset
+  remaining @ 0 = if timeout remaining ! then
+  \ Only resample if reset
+  remaining @ timeout = if
+    sample darkcutout < if pGreen io-1! else pGreen io-0! then
+  then
 ;
-
 
 : myinit \ ( -- )
   \ Configure ADC
