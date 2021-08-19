@@ -7,6 +7,7 @@ $20  constant EVENOFFSET
 $00 constant INMODE-NR   \    0    0   0   0   0   X  Input
 $04 constant INMODE-PD   \    0    0   0   1   0   0  Input with pulldown resistor
 $05 constant INMODE-PU   \    0    0   0   1   0   1  Input with pullup resistor
+$30 constant ANALOGMODE  \    1    1   X   X   X   X  Analog
 $02 constant OUTMODE-LS  \    0    0   0   X   1   X  Output with reduced drive strength
 $0A constant OUTMODE-HS  \    0    0   1   X   1   1  Output with high drive strength
 $12 constant OUTMODE-SP0 \    0    1   X   X   1   X  Ouput with special function 0
