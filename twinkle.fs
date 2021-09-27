@@ -77,6 +77,13 @@ false variable twinkle
   \ TODO switch to temp adc based seed
   $FFFF CRCINIRES !
 
+  \ flash light
+  OUTMODE-LS pBlue io-mode!        \ Blue LED
+  OUTMODE-LS pGreen io-mode!       \ Green LED
+  pBlue io-1! 500 ms pBlue io-0!
+  pGreen io-1! 500 ms pGreen io-0!
+  \ pRed io-1! 500 ms pRed io-0!
+
   \ Configure IO
   OUTMODE-SP1 pBlue io-mode!        \ Blue LED
   OUTMODE-SP1 pGreen io-mode!       \ Green LED
