@@ -2,41 +2,48 @@ compiletoflash
 
 \res MCU: MSP430FR2433
 
-\ TODO Ditch ones I'm not using
 \ TIMERS
-\res export TA0CTL TA0R TA0CCTL0 TA0CCTL1 TA0CCTL2 TA0CCR0 TA0CCR1 TA0CCR2 TA1CTL TA1CCTL0 TA1CCTL1 TA1CCTL2 TA1CCR0 TA1CCR1 TA1R
+\res export TA0CTL TA0CCTL1 TA0CCTL2 TA0CCR0 TA0CCR1 TA0CCR2 TA1CTL TA1CCTL0 TA1CCR0
 #include ms.fs
 #include digital-io.fs
 
+\ Debounce status tracking variables & constants
+\ see http://www.ganssle.com/debouncing.htm for details
+\ Real work is done in the tick-interrupt-handler
+$0 variable buttonstate                                    \ Encoder bounce tracker
+$0 variable r1state                                        \ Encoder rotation 1 tracker
+$0 variable r2state                                        \ Encoder rotation 2 tracker
+250 constant ticks_per_sec                                 \ Number of ticks in a second
+8 constant debounce_ms                                     \ Settle time for switch debounce
+debounce_ms 1000 ticks_per_sec / / constant debounce_ticks \ Settle time in ticks
+$FFFF debounce_ticks 1 - lshift    constant debounce_check \ Constant for tracking debounce
+debounce_check shl                 constant debounce_mask  \ Constant for tracking debounce
 
-$0 variable buttonstate
-$0 variable r1state
-$0 variable r2state
-50 variable lightLevel
-\ Project pin assignments
+\ State Variables
+50 variable origLightLevel    \ The user set value for light
+50 variable lightLevel        \ The system 'dimmed' value for light
+30 variable timeoutSeconds    \ How long until we shut it down
+
+\ MCU  pin assignments
 1 1 io constant pLamp
 1 2 io constant pLED
 3 0 io constant pRotary1
 3 1 io constant pRotary2
 3 2 io constant pButton
-1 constant step
-
-
-
-\ Debouncing constants
-250 constant ticks_per_ms
-8 constant debounce_ms
-debounce_ms 1000 ticks_per_ms / / constant debounce_ticks
-$FFFF debounce_ticks 1 - lshift constant debounce_check
-debounce_check shl constant debounce_mask
 
 \ Fix value between max and min values
 : clamp 90 min 0 max ;
+
 \ Simple squared gamma 0-90
 : light dup * TA0CCR1 ! lightLevel @ . cr ;
     
+\ TODO Can we get more clever with p3 debounce check?
 : tick-interrupt-handler
-  buttonstate @ shl pButton io@ or debounce_mask or dup buttonstate ! debounce_check = if 45 dup lightLevel ! light  then
+  \ If button clicked, return light to known value
+  buttonstate @ shl pButton io@ or debounce_mask or dup buttonstate !
+  debounce_check = if 45 lightLevel ! then
+
+  \ Record state of encoder switches
   r1state @ shl pRotary1 io@ or debounce_mask or dup r1state !
   r2state @ shl pRotary2 io@ or debounce_mask or dup r2state !
   2dup
@@ -44,12 +51,19 @@ debounce_check shl constant debounce_mask
   -rot swap
   debounce_check = swap debounce_mask = and
 
+  \ Are we turning left or right? Update the desired light level
   \ Turn Right
-  if lightLevel @ step + clamp dup lightLevel ! light then
+  if lightLevel @ 2+ clamp lightLevel ! then
   \ Turn Left
-  if lightLevel @ step - clamp dup lightLevel ! light then
+  if lightLevel @ 2- clamp lightLevel ! then
 
-\ pButton buttonState triggered? if pLED iox! then
+  \ 'Close in' on desired value to avoid abrupt light level changes
+  \ But scale the shifts so that big jumps don't take forever (pressing the button etc)
+
+  lightLevel @ dup * TA0CCR1 @ \ Calculate the desired TA0CCR1 by squaring desired level
+  dup -rot - 5 arshift         \ Find the difference and then divide this by 2^6 (32)
+  dup 0= if drop               \ if 0 then we're close enough to assume the desired value
+  else + then TA0CCR1 !        \ otherwise add offset to close in on desired TA0CCR value
 ;
 
 : myinit \ ( -- )
@@ -57,26 +71,25 @@ debounce_check shl constant debounce_mask
   OUTMODE-SP1 pLED     io-mode! \ Indicator LED
   OUTMODE-SP1 pLamp    io-mode! \ Lamp
   INMODE-PU   pButton  io-mode! \ Rotary Pushbutton
-  INMODE-PU   pRotary1 io-mode! \ Rotary Quadrature 1
-  INMODE-PU   pRotary2 io-mode! \ Rotary Quadrature 2
+  INMODE-PU   pRotary1 io-mode! \ Rotary Quadrature Enc 1
+  INMODE-PU   pRotary2 io-mode! \ Rotary Quadrature Enc 2
 
-  \ Timer A0 for running Lamp / led dimming duty
+  \ Timer A0 for running PWM Lamp / LED dimming duty
   $0008             TA0CTL bis! \ Set TACLR to clear timer
-  lightLevel dup *  TA0CCR1 !    \ Lamp initial duty cycle
-  $07FF             TA0CCR2 !    \ LED initial duty cycle
   $1FFF             TA0CCR0 !    \ Frequency
+  $0000             TA0CCR1 !    \ Lamp initial duty cycle (tick will move this to lightLevel)
+  $07FF             TA0CCR2 !    \ LED initial duty cycle
   $00E0             TA0CCTL1 !
   $00E0             TA0CCTL2 !
   $210              TA0CTL !     \ SMCLK/1 Start in up mode
 
   \ Timer A1 for switch debounce and clock time
-  $2D0 TA1CTL !   \ SMCLK/8 - Up Mode - disable interrupts
-  1000 ticks_per_ms / 1000 * TA1CCR0 ! \ 25Hz
-  $10  TA1CCTL0 ! \ Enable interupts
+  $2D0 TA1CTL !   i                     \ SMCLK/8 - Up Mode
+  1000 ticks_per_sec / 1000 * TA1CCR0 ! \ trigger ever ticks_per_sec
+  $10  TA1CCTL0 !                       \ Enable interupts
 
-  \ Register interrupt handlers  
+  \ Register interrupt handlers and enable interrupts
   ['] tick-interrupt-handler irq-timerb0 ! \ (B0 is mecrisp's confusing name for A1 main interrupt)
-  \ Enable interrupts
   eint
 ;
 
