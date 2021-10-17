@@ -21,10 +21,11 @@ $FFFF debounce_ticks 1 - lshift    constant debounce_check \ Constant for tracki
 debounce_check shl                 constant debounce_mask  \ Constant for tracking debounce
 
 \ State Variables
-50 variable origLightLevel    \ The user set value for light
-50 variable lightLevel        \ The system 'dimmed' value for light
-30 variable timeoutSeconds    \ How long until we shut it down
-0  variable ticks             \ Track ticks to track seconds
+50 variable origLightLevel            \ The user set value for light
+50 variable lightLevel                \ The system 'dimmed' value for light
+30 variable timeoutSeconds            \ User selectable timeout
+timeoutSeconds @ variable secondsLeft \ How long until we shut it down
+0  variable ticks                     \ Track ticks to track seconds
 \ MCU  pin assignments
 1 1 io constant pLamp
 1 2 io constant pLED
@@ -39,20 +40,28 @@ debounce_check shl                 constant debounce_mask  \ Constant for tracki
 : light dup * TA0CCR1 ! lightLevel @ . cr ;
 
 \ TODO Can we use a slower clock to track ticks?
+\ TODO Setup LED nightlight timeout
+\ TODO User setup mode to set timeout / mode
 \ TODO Can we get more clever with p3 debounce check?
 : tick-interrupt-handler
-  ticks @ 1+ dup ticks_per_sec mod 0= if \ Have we crossed a sec?
-    timeoutSeconds @ 1- dup              \ Decrement timeout secs
-    0= if 0 lightLevel !                 \ Lights out
-       else timeoutSeconds ! then        \ Decrement timeout secs
-    0 ticks ! drop                       \ Reset ticks
-    else ticks !                         \ Otherwise inc ticks
+  ticks @ 1+ ticks_per_sec mod
+  dup ticks !              \ inc ticks rollover
+  0= if                    \ Have we crossed a sec?
+    secondsLeft @ 1-       \ Decrement timeout secs
+    dup secondsLeft !
+    0= if                  \ Down to zero?
+      0 lightLevel !       \ Lights out
+    then
   then
 
 
   \ If button clicked, return light to known value
   buttonstate @ shl pButton io@ or debounce_mask or dup buttonstate !
-  debounce_check = if 45 lightLevel ! then
+  debounce_check = if
+    origLightLevel @ lightLevel !  \ Back to default light level
+    timeoutSeconds @ secondsLeft ! \ Reset timers
+    0 ticks !
+  then
 
   \ Record state of encoder switches
   r1state @ shl pRotary1 io@ or debounce_mask or dup r1state !
@@ -72,7 +81,7 @@ debounce_check shl                 constant debounce_mask  \ Constant for tracki
   \ But scale the shifts so that big jumps don't take forever (pressing the button etc)
 
   lightLevel @ dup * TA0CCR1 @ \ Calculate the desired TA0CCR1 by squaring desired level
-  dup -rot - 5 arshift         \ Find the difference and then divide this by 2^6 (32)
+  dup -rot - 5 arshift         \ Find the difference and then divide this by 2^5 (16)
   dup 0= if drop               \ if 0 then we're close enough to assume the desired value
   else + then TA0CCR1 !        \ otherwise add offset to close in on desired TA0CCR value
 ;
