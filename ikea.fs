@@ -13,6 +13,7 @@ compiletoflash
 $0 variable buttonstate                                    \ Encoder bounce tracker
 $0 variable r1state                                        \ Encoder rotation 1 tracker
 $0 variable r2state                                        \ Encoder rotation 2 tracker
+$0 variable ticks                                          \ Keep track of the passage of ticks
 250 constant ticks_per_sec                                 \ Number of ticks in a second
 8 constant debounce_ms                                     \ Settle time for switch debounce
 debounce_ms 1000 ticks_per_sec / / constant debounce_ticks \ Settle time in ticks
@@ -23,7 +24,7 @@ debounce_check shl                 constant debounce_mask  \ Constant for tracki
 50 variable origLightLevel    \ The user set value for light
 50 variable lightLevel        \ The system 'dimmed' value for light
 30 variable timeoutSeconds    \ How long until we shut it down
-
+0  variable ticks             \ Track ticks to track seconds
 \ MCU  pin assignments
 1 1 io constant pLamp
 1 2 io constant pLED
@@ -36,9 +37,19 @@ debounce_check shl                 constant debounce_mask  \ Constant for tracki
 
 \ Simple squared gamma 0-90
 : light dup * TA0CCR1 ! lightLevel @ . cr ;
-    
+
+\ TODO Can we use a slower clock to track ticks?
 \ TODO Can we get more clever with p3 debounce check?
 : tick-interrupt-handler
+  ticks @ 1+ dup ticks_per_sec mod 0= if \ Have we crossed a sec?
+    timeoutSeconds @ 1- dup              \ Decrement timeout secs
+    0= if 0 lightLevel !                 \ Lights out
+       else timeoutSeconds ! then        \ Decrement timeout secs
+    0 ticks ! drop                       \ Reset ticks
+    else ticks !                         \ Otherwise inc ticks
+  then
+
+
   \ If button clicked, return light to known value
   buttonstate @ shl pButton io@ or debounce_mask or dup buttonstate !
   debounce_check = if 45 lightLevel ! then
