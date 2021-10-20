@@ -27,8 +27,8 @@ debounce_check shl                 constant debounce_mask  \ Constant for tracki
 timeoutSeconds @ variable secondsLeft \ How long until we shut it down
 0  variable ticks                     \ Track ticks to track seconds
 \ MCU  pin assignments
-1 1 io constant pLamp
-1 2 io constant pLED
+1 1 io constant pLED
+1 2 io constant pLamp
 3 0 io constant pRotary1
 3 1 io constant pRotary2
 3 2 io constant pButton
@@ -37,7 +37,7 @@ timeoutSeconds @ variable secondsLeft \ How long until we shut it down
 : clamp 90 min 0 max ;
 
 \ Simple squared gamma 0-90
-: light dup * TA0CCR1 ! lightLevel @ . cr ;
+: light dup * TA0CCR2 ! lightLevel @ . cr ;
 
 \ TODO Can we use a slower clock to track ticks?
 \ TODO Setup LED nightlight timeout
@@ -80,10 +80,10 @@ timeoutSeconds @ variable secondsLeft \ How long until we shut it down
   \ 'Close in' on desired value to avoid abrupt light level changes
   \ But scale the shifts so that big jumps don't take forever (pressing the button etc)
 
-  lightLevel @ dup * TA0CCR1 @ \ Calculate the desired TA0CCR1 by squaring desired level
+  lightLevel @ dup * TA0CCR2 @ \ Calculate the desired TA0CCR2 by squaring desired level
   dup -rot - 5 arshift         \ Find the difference and then divide this by 2^5 (16)
   dup 0= if drop               \ if 0 then we're close enough to assume the desired value
-  else + then TA0CCR1 !        \ otherwise add offset to close in on desired TA0CCR value
+  else + then TA0CCR2 !        \ otherwise add offset to close in on desired TA0CCR value
 ;
 
 : myinit \ ( -- )
@@ -97,8 +97,8 @@ timeoutSeconds @ variable secondsLeft \ How long until we shut it down
   \ Timer A0 for running PWM Lamp / LED dimming duty
   $0008             TA0CTL bis! \ Set TACLR to clear timer
   $1FFF             TA0CCR0 !    \ Frequency
-  $0000             TA0CCR1 !    \ Lamp initial duty cycle (tick will move this to lightLevel)
-  $07FF             TA0CCR2 !    \ LED initial duty cycle
+  $07FF             TA0CCR1 !    \ LED initial duty cycle
+  $0000             TA0CCR2 !    \ Lamp initial duty cycle (tick will move this to lightLevel)
   $00E0             TA0CCTL1 !
   $00E0             TA0CCTL2 !
   $210              TA0CTL !     \ SMCLK/1 Start in up mode
