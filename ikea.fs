@@ -48,9 +48,10 @@ timeoutSeconds @ variable secondsLeft \ How long until we shut it down
   dup ticks !              \ inc ticks rollover
   0= if                    \ Have we crossed a sec?
     secondsLeft @ 1-       \ Decrement timeout secs
-    dup secondsLeft !
-    0= if                  \ Down to zero?
-      0 lightLevel !       \ Lights out
+    dup 0= if              \ Down to zero?
+      0 lightLevel ! drop  \ Lights out
+     else
+       secondsLeft !       \ Update seconds remaining
     then
   then
 
