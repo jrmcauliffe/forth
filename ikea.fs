@@ -29,8 +29,8 @@ timeoutSeconds @ variable secondsLeft \ How long until we shut it down
 \ MCU  pin assignments
 1 1 io constant pLED
 1 2 io constant pLamp
-3 0 io constant pRotary1
-3 1 io constant pRotary2
+3 1 io constant pRotary1
+3 0 io constant pRotary2
 3 2 io constant pButton
 
 \ Fix value between max and min values
