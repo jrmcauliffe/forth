@@ -59,8 +59,12 @@ timeoutSeconds @ variable secondsLeft \ How long until we shut it down
   \ If button clicked, return light to known value
   buttonstate @ shl pButton io@ or debounce_mask or dup buttonstate !
   debounce_check = if
-    origLightLevel @ lightLevel !  \ Back to default light level
-    timeoutSeconds @ secondsLeft ! \ Reset timers
+    lightLevel @ 0= if               \ Light is off, revert back to original
+      origLightLevel @ lightLevel !  \ Back to default light level
+    else
+      0 lightLevel !                 \ Otherwise button press is off
+    then
+    timeoutSeconds @ secondsLeft !   \ Reset timers
     0 ticks !
   then
 
