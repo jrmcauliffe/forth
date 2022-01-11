@@ -15,16 +15,22 @@ $0 variable r1state                                        \ Encoder rotation 1 
 $0 variable r2state                                        \ Encoder rotation 2 tracker
 $0 variable ticks                                          \ Keep track of the passage of ticks
 250 constant d_ticks_per_sec                               \ Number of debounce ticks in a second
-32 constant ticks_per_sec                                  \ Number of clock ticks in a second
+64 constant ticks_per_sec                                  \ Number of clock ticks in a second
 8 constant debounce_ms                                     \ Settle time for switch debounce
 debounce_ms 1000 d_ticks_per_sec / / constant debounce_ticks \ Settle time in ticks
 $FFFF debounce_ticks 1 - lshift    constant debounce_check \ Constant for tracking debounce
 debounce_check shl                 constant debounce_mask  \ Constant for tracking debounce
 
 \ State Variables
-50 variable origLightLevel            \ The user set value for light
-50 variable lightLevel                \ The system 'dimmed' value for light
-30 variable timeoutSeconds            \ User selectable timeout
+\ 50 constant origLightLevel            \ The user set value for light
+\ 30 variable timeoutSeconds            \ User selectable timeout
+
+\ Swoles
+30 constant origLightLevel 600 variable timeoutSeconds
+\ Bear
+\ 50 constant origLightLevel 1800 variable timeoutSeconds
+
+origLightLevel variable lightLevel                \ The system 'dimmed' value for light
 timeoutSeconds @ variable secondsLeft \ How long until we shut it down
 0  variable ticks                     \ Track ticks to track seconds
 
@@ -41,17 +47,14 @@ timeoutSeconds @ variable secondsLeft \ How long until we shut it down
 \ Simple squared gamma 0-90
 : light dup * TA0CCR2 ! lightLevel @ . cr ;
 
-\ TODO Can we use a slower clock to track ticks?
 \ TODO Setup LED nightlight timeout
 \ TODO Can we get more clever with p3 debounce check?
 : debounce-tick-interrupt-handler
-
-
   \ If button clicked, return light to known value
   buttonstate @ shl pButton io@ or debounce_mask or dup buttonstate !
   debounce_check = if
     lightLevel @ 0= if               \ Light is off, revert back to original
-      origLightLevel @ lightLevel !  \ Back to default light level
+      origLightLevel lightLevel !    \ Back to default light level
     else
       0 lightLevel !                 \ Otherwise button press is off
     then
@@ -72,8 +75,6 @@ timeoutSeconds @ variable secondsLeft \ How long until we shut it down
   if lightLevel @ 2+ clamp lightLevel ! then
   \ Turn Left
   if lightLevel @ 2- clamp lightLevel ! then
-
-
 ;
 
 : clock-tick-interrupt-handler
@@ -93,8 +94,8 @@ timeoutSeconds @ variable secondsLeft \ How long until we shut it down
   dup -rot - 3 arshift         \ Find the difference and then divide this by 2^3 (8)
   dup 0= if drop               \ if 0 then we're close enough to assume the desired value
   else + then TA0CCR2 !        \ otherwise add offset to close in on desired TA0CCR value
- \ ." tick" cr
 ;
+
 : myinit \ ( -- )
   \ Configure pins for io
   OUTMODE-SP1 pLED     io-mode! \ Indicator LED
