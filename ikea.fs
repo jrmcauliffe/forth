@@ -3,7 +3,7 @@ compiletoflash
 \res MCU: MSP430FR2433
 
 \ TIMERS
-\res export TA0CTL TA0CCTL1 TA0CCTL2 TA0CCR0 TA0CCR1 TA0CCR2 TA1CTL TA1CCTL0 TA1CCR0
+\res export TA0CTL TA0CCTL1 TA0CCTL2 TA0CCR0 TA0CCR1 TA0CCR2 TA2CTL TA2CCTL0 TA2CCR0 TA3CTL TA3CCTL0 TA3CCR0
 #include ms.fs
 #include digital-io.fs
 
@@ -14,9 +14,10 @@ $0 variable buttonstate                                    \ Encoder bounce trac
 $0 variable r1state                                        \ Encoder rotation 1 tracker
 $0 variable r2state                                        \ Encoder rotation 2 tracker
 $0 variable ticks                                          \ Keep track of the passage of ticks
-250 constant ticks_per_sec                                 \ Number of ticks in a second
+250 constant d_ticks_per_sec                               \ Number of debounce ticks in a second
+32 constant ticks_per_sec                                  \ Number of clock ticks in a second
 8 constant debounce_ms                                     \ Settle time for switch debounce
-debounce_ms 1000 ticks_per_sec / / constant debounce_ticks \ Settle time in ticks
+debounce_ms 1000 d_ticks_per_sec / / constant debounce_ticks \ Settle time in ticks
 $FFFF debounce_ticks 1 - lshift    constant debounce_check \ Constant for tracking debounce
 debounce_check shl                 constant debounce_mask  \ Constant for tracking debounce
 
@@ -26,6 +27,7 @@ debounce_check shl                 constant debounce_mask  \ Constant for tracki
 30 variable timeoutSeconds            \ User selectable timeout
 timeoutSeconds @ variable secondsLeft \ How long until we shut it down
 0  variable ticks                     \ Track ticks to track seconds
+
 \ MCU  pin assignments
 1 1 io constant pLED
 1 2 io constant pLamp
@@ -41,19 +43,8 @@ timeoutSeconds @ variable secondsLeft \ How long until we shut it down
 
 \ TODO Can we use a slower clock to track ticks?
 \ TODO Setup LED nightlight timeout
-\ TODO User setup mode to set timeout / mode
 \ TODO Can we get more clever with p3 debounce check?
-: tick-interrupt-handler
-  ticks @ 1+ ticks_per_sec mod
-  dup ticks !              \ inc ticks rollover
-  0= if                    \ Have we crossed a sec?
-    secondsLeft @ 1-       \ Decrement timeout secs
-    dup 0= if              \ Down to zero?
-      0 lightLevel ! drop  \ Lights out
-     else
-       secondsLeft !       \ Update seconds remaining
-    then
-  then
+: debounce-tick-interrupt-handler
 
 
   \ If button clicked, return light to known value
@@ -82,15 +73,28 @@ timeoutSeconds @ variable secondsLeft \ How long until we shut it down
   \ Turn Left
   if lightLevel @ 2- clamp lightLevel ! then
 
-  \ 'Close in' on desired value to avoid abrupt light level changes
-  \ But scale the shifts so that big jumps don't take forever (pressing the button etc)
 
-  lightLevel @ dup * TA0CCR2 @ \ Calculate the desired TA0CCR2 by squaring desired level
-  dup -rot - 5 arshift         \ Find the difference and then divide this by 2^5 (16)
-  dup 0= if drop               \ if 0 then we're close enough to assume the desired value
-  else + then TA0CCR2 !        \ otherwise add offset to close in on desired TA0CCR value
 ;
 
+: clock-tick-interrupt-handler
+  ticks @ 1+ ticks_per_sec mod
+  dup ticks !              \ inc ticks rollover
+  0= if                    \ Have we crossed a sec?
+    secondsLeft @ 1-       \ Decrement timeout secs
+    dup 0= if              \ Down to zero?
+      0 lightLevel ! drop  \ Lights out
+     else
+       secondsLeft !       \ Update seconds remaining
+    then
+  then
+  \ 'Close in' on desired value to avoid abrupt light level changes
+  \ But scale the shifts so that big jumps don't take forever (pressing the button etc)
+  lightLevel @ dup * TA0CCR2 @ \ Calculate the desired TA0CCR2 by squaring desired level
+  dup -rot - 3 arshift         \ Find the difference and then divide this by 2^3 (8)
+  dup 0= if drop               \ if 0 then we're close enough to assume the desired value
+  else + then TA0CCR2 !        \ otherwise add offset to close in on desired TA0CCR value
+ \ ." tick" cr
+;
 : myinit \ ( -- )
   \ Configure pins for io
   OUTMODE-SP1 pLED     io-mode! \ Indicator LED
@@ -108,13 +112,20 @@ timeoutSeconds @ variable secondsLeft \ How long until we shut it down
   $00E0             TA0CCTL2 !
   $210              TA0CTL !     \ SMCLK/1 Start in up mode
 
-  \ Timer A1 for switch debounce and clock time
-  $2D0 TA1CTL !   i                     \ SMCLK/8 - Up Mode
-  1000 ticks_per_sec / 1000 * TA1CCR0 ! \ trigger ever ticks_per_sec
-  $10  TA1CCTL0 !                       \ Enable interupts
+  \ Timer A2 for switch debounce
+  $2D0 TA2CTL !                           \ SMCLK/8 - Up Mode
+  1000 d_ticks_per_sec / 1000 * TA2CCR0 ! \ trigger ever ticks_per_sec
+  $10  TA2CCTL0 !                         \ Enable interupts
+
+  \ Timer A3 for tracking wall time and updating etc
+  $110 TA3CTL !                         \ ACLK/1 - Up Mode
+  $7FFF ticks_per_sec /  TA3CCR0 !
+  $10  TA3CCTL0 !                       \ Enable interupts
 
   \ Register interrupt handlers and enable interrupts
-  ['] tick-interrupt-handler irq-timerb0 ! \ (B0 is mecrisp's confusing name for A1 main interrupt)
+  ['] debounce-tick-interrupt-handler irq-timerc0 ! \ (C0 is mecrisp's confusing name for A2 main interrupt)
+  ['] clock-tick-interrupt-handler irq-timerd0 !    \ (D0 is mecrisp's confusing name for A3 main interrupt)
+
   eint
 ;
 
