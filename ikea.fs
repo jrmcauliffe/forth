@@ -4,6 +4,7 @@ compiletoflash
 
 \ TIMERS
 \res export TA0CTL TA0CCTL1 TA0CCTL2 TA0CCR0 TA0CCR1 TA0CCR2 TA2CTL TA2CCTL0 TA2CCR0 TA3CTL TA3CCTL0 TA3CCR0
+\res export RTCCTL RTCIV RTCMOD RTCCNT
 #include ms.fs
 #include digital-io.fs
 
@@ -13,7 +14,6 @@ compiletoflash
 $0 variable buttonstate                                    \ Encoder bounce tracker
 $0 variable r1state                                        \ Encoder rotation 1 tracker
 $0 variable r2state                                        \ Encoder rotation 2 tracker
-$0 variable ticks                                          \ Keep track of the passage of ticks
 250 constant d_ticks_per_sec                               \ Number of debounce ticks in a second
 64 constant ticks_per_sec                                  \ Number of clock ticks in a second
 8 constant debounce_ms                                     \ Settle time for switch debounce
@@ -22,17 +22,15 @@ $FFFF debounce_ticks 1 - lshift    constant debounce_check \ Constant for tracki
 debounce_check shl                 constant debounce_mask  \ Constant for tracking debounce
 
 \ State Variables
-\ 50 constant origLightLevel            \ The user set value for light
-\ 30 variable timeoutSeconds            \ User selectable timeout
-
 \ Swoles
-30 constant origLightLevel 600 variable timeoutSeconds
+20 constant origLightLevel
+600 variable timeoutSeconds
+
 \ Bear
-\ 50 constant origLightLevel 1800 variable timeoutSeconds
+\ 50 constant origLightLevel
+\ 1800 variable timeoutSeconds
 
 origLightLevel variable lightLevel                \ The system 'dimmed' value for light
-timeoutSeconds @ variable secondsLeft \ How long until we shut it down
-0  variable ticks                     \ Track ticks to track seconds
 
 \ MCU  pin assignments
 1 1 io constant pLED
@@ -44,10 +42,6 @@ timeoutSeconds @ variable secondsLeft \ How long until we shut it down
 \ Fix value between max and min values
 : clamp 90 min 0 max ;
 
-\ Simple squared gamma 0-90
-: light dup * TA0CCR2 ! lightLevel @ . cr ;
-
-\ TODO Setup LED nightlight timeout
 \ TODO Can we get more clever with p3 debounce check?
 : debounce-tick-interrupt-handler
   \ If button clicked, return light to known value
@@ -58,8 +52,7 @@ timeoutSeconds @ variable secondsLeft \ How long until we shut it down
     else
       0 lightLevel !                 \ Otherwise button press is off
     then
-    timeoutSeconds @ secondsLeft !   \ Reset timers
-    0 ticks !
+    $0040 RTCCTL bis!                \ Reset countdown timer
   then
 
   \ Record state of encoder switches
@@ -78,22 +71,17 @@ timeoutSeconds @ variable secondsLeft \ How long until we shut it down
 ;
 
 : clock-tick-interrupt-handler
-  ticks @ 1+ ticks_per_sec mod
-  dup ticks !              \ inc ticks rollover
-  0= if                    \ Have we crossed a sec?
-    secondsLeft @ 1-       \ Decrement timeout secs
-    dup 0= if              \ Down to zero?
-      0 lightLevel ! drop  \ Lights out
-     else
-       secondsLeft !       \ Update seconds remaining
-    then
-  then
   \ 'Close in' on desired value to avoid abrupt light level changes
   \ But scale the shifts so that big jumps don't take forever (pressing the button etc)
   lightLevel @ dup * TA0CCR2 @ \ Calculate the desired TA0CCR2 by squaring desired level
   dup -rot - 3 arshift         \ Find the difference and then divide this by 2^3 (8)
   dup 0= if drop               \ if 0 then we're close enough to assume the desired value
   else + then TA0CCR2 !        \ otherwise add offset to close in on desired TA0CCR value
+;
+
+: rtc-interrupt-handler
+  0 lightLevel ! \ Lights out
+  RTCIV @ drop   \ Clear interrupt
 ;
 
 : myinit \ ( -- )
@@ -105,7 +93,7 @@ timeoutSeconds @ variable secondsLeft \ How long until we shut it down
   INMODE-PU   pRotary2 io-mode! \ Rotary Quadrature Enc 2
 
   \ Timer A0 for running PWM Lamp / LED dimming duty
-  $0008             TA0CTL bis! \ Set TACLR to clear timer
+  $0008             TA0CTL bis!  \ Set TACLR to clear timer
   $1FFF             TA0CCR0 !    \ Frequency
   $07FF             TA0CCR1 !    \ LED initial duty cycle
   $0000             TA0CCR2 !    \ Lamp initial duty cycle (tick will move this to lightLevel)
@@ -118,14 +106,20 @@ timeoutSeconds @ variable secondsLeft \ How long until we shut it down
   1000 d_ticks_per_sec / 1000 * TA2CCR0 ! \ trigger ever ticks_per_sec
   $10  TA2CCTL0 !                         \ Enable interupts
 
-  \ Timer A3 for tracking wall time and updating etc
+  \ Timer A3 for updating lamp values
   $110 TA3CTL !                         \ ACLK/1 - Up Mode
   $7FFF ticks_per_sec /  TA3CCR0 !
   $10  TA3CCTL0 !                       \ Enable interupts
 
+  \ RTC for timeout
+  $3302   RTCCTL !                      \ VCLOCK / 1000 /w interrupts
+  timeoutSeconds @ 10 * RTCMOD !        \ 10 ticks per second
+  $0040   RTCCTL bis!
+
   \ Register interrupt handlers and enable interrupts
   ['] debounce-tick-interrupt-handler irq-timerc0 ! \ (C0 is mecrisp's confusing name for A2 main interrupt)
   ['] clock-tick-interrupt-handler irq-timerd0 !    \ (D0 is mecrisp's confusing name for A3 main interrupt)
+  ['] rtc-interrupt-handler irq-rtc !               \ RTC handler
 
   eint
 ;
