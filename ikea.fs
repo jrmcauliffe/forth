@@ -65,9 +65,9 @@ origLightLevel variable lightLevel                \ The system 'dimmed' value fo
 
   \ Are we turning left or right? Update the desired light level
   \ Turn Right
-  if lightLevel @ 2+ clamp lightLevel ! then
+  if lightLevel @ 2+ clamp lightLevel ! $0042 RTCCTL bis! then
   \ Turn Left
-  if lightLevel @ 2- clamp lightLevel ! then
+  if lightLevel @ 2- clamp lightLevel ! $0042 RTCCTL bis! then
 ;
 
 : clock-tick-interrupt-handler
