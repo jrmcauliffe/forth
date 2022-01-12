@@ -24,11 +24,11 @@ debounce_check shl                 constant debounce_mask  \ Constant for tracki
 \ State Variables
 \ Swoles
 20 constant origLightLevel
-600 variable timeoutSeconds
+600 constant timeoutSeconds
 
 \ Bear
 \ 50 constant origLightLevel
-\ 1800 variable timeoutSeconds
+\ 1800 constant timeoutSeconds
 
 origLightLevel variable lightLevel                \ The system 'dimmed' value for light
 
@@ -52,7 +52,7 @@ origLightLevel variable lightLevel                \ The system 'dimmed' value fo
     else
       0 lightLevel !                 \ Otherwise button press is off
     then
-    $0040 RTCCTL bis!                \ Reset countdown timer
+    $0042 RTCCTL bis!                \ Reset countdown timer and enable interrupts
   then
 
   \ Record state of encoder switches
@@ -82,6 +82,7 @@ origLightLevel variable lightLevel                \ The system 'dimmed' value fo
 : rtc-interrupt-handler
   0 lightLevel ! \ Lights out
   RTCIV @ drop   \ Clear interrupt
+  2 RTCCTL bic!  \ Disable interrupt
 ;
 
 : myinit \ ( -- )
@@ -113,7 +114,7 @@ origLightLevel variable lightLevel                \ The system 'dimmed' value fo
 
   \ RTC for timeout
   $3302   RTCCTL !                      \ VCLOCK / 1000 /w interrupts
-  timeoutSeconds @ 10 * RTCMOD !        \ 10 ticks per second
+  timeoutSeconds 10 * RTCMOD !          \ 10 ticks per second
   $0040   RTCCTL bis!
 
   \ Register interrupt handlers and enable interrupts
