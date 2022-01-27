@@ -150,6 +150,12 @@
          BIT7     equ WDTHOLD
          BIT8 8 bits: WDTPW_
 
+\ --- RTC Registers
+
+0300 equ RTCCTL
+0304 equ RTCIV
+0308 equ RTCMOD
+030C equ RTCCNT
 
 \ --- Timer0_A3 Registers
 
