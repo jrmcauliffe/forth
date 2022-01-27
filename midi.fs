@@ -1,7 +1,7 @@
-\res MCU: MSP430F2433
+\res MCU: MSP430FR2355
 
 \ Timer_A0
-\res export TA0CTL TA0CCTL0 TA0CCTL1 TA0CCR0 TA0CCR1
+\res export TA1CTL TA1CCTL0 TA1CCTL1 TA1CCR0 TA1CCR1 TA1EX0
 
 #include ms.fs
 #include digital-io.fs
@@ -9,20 +9,17 @@
 
 \ Project pin assignments
 
-1 1 io constant outpin
+2 0 io constant outpin
 
 : init_cv
-  OUTMODE-SP1 outpin io-mode!
-  $210 TA0CTL !   \ SMCLK/8 up mode interrupts not enabled
-  $E0 TA0CCTL1 !  \ Reset/Set Mode / interrupts disabled
-  3314 TA0CCR0 !  \ TAxCCR0 At 1Mhz -> 20ms
-  500 TA0CCR1 !  \ 50% duty cycle
+  OUTMODE-SP0 outpin io-mode!
+  $0210 TA1CTL !   \ SMCLK/8 up mode interrupts not enabled
+  $0080 TA1CCTL1 ! \ Toggle Mode / interrupts disabled
+  $0007 TA1EX0 !   \ Divide by a further 8
+  $0FFF TA1CCR0 !  \ TAxCCR0 At 1Mhz -> 20ms
+  $0001 TA1CCR1 !  \ Just need a value here for toggle to work
 ;
 
-: bleeps ( pause count -- )
-  0 DO dup ms 2000 TA0CCR1 ! dup ms 3000 TA0CCR1 ! loop
-  drop
-;
+: Hz 62500 swap  u/mod swap drop 3 lshift ;
 
-: octaves
-  4 0 DO i 1000 * TA0CCR1 ! 1000 ms loop ;
+: >Speaker TA1CCR0 ! ;
