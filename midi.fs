@@ -31,9 +31,9 @@ compiletoflash
 : midi> UCA0RXBUF @ ;
 
 : midi_handler
-  midi> dup
   \ drop sysex messages for now, punt to output
-  4 rshift $F = if drop else dup hex. >midi then
+  midi> dup dup
+  $F8 = swap $FE = or if drop else dup hex. >midi then
 ;
 
 : init_midi
