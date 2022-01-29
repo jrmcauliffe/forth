@@ -1,3 +1,5 @@
+compiletoflash
+
 \res MCU: MSP430FR2355
 
 \ Timer_A0
@@ -47,8 +49,22 @@
   eint                          \ enable interrupts
 ;
 
-: note_on  $90 >midi >midi $7A >midi ;
-: note_off $90 >midi >midi 0 >midi ;
+: my_init
+  init_midi
+;
+
+: note_on  $90 >midi 500 us >midi 500 us $7A >midi ;
+: note_off $90 >midi 500 us >midi 500 us 0 >midi ;
+: note dup note_on 500 ms note_off ;
+
 : Hz 62500 swap  u/mod swap drop 3 lshift ;
 
 : >Speaker TA1CCR0 ! ;
+
+: init ( -- ) \ Launch program if no keypress after 3 sec
+  ." Press <enter> for console"
+  10 0 do ." ." 300 ms key? if leave then loop
+  key? if else my_init then
+;
+
+compiletoram
