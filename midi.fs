@@ -4,18 +4,18 @@ compiletoflash
 
 \ Timer_A0
 \res export TA1CTL TA1CCTL0 TA1CCTL1 TA1CCR0 TA1CCR1 TA1EX0
-\res export UCA0CTLW0 UCA0BRW UCA0MCTLW UCA0IE UCA0RXBUF UCA0TXBUF
+\res export UCA0CTLW0 UCA0BRW UCA0MCTLW UCA0IE UCA0IFG UCA0IV UCA0RXBUF UCA0TXBUF
 
 #include ms.fs
 #include digital-io.fs
-
+#include ring.fs
 
 \ Project pin assignments
 
 2 0 io constant audioOut
 1 6 io constant midiRx
 1 7 io constant midiTx
-
+32 4 + buffer: txbuffer
 
 : init_cv
   OUTMODE-SP0 audioOut io-mode!
@@ -26,17 +26,34 @@ compiletoflash
   $0001 TA1CCR1 !  \ Just need a value here for toggle to work
 ;
 
-: >midi UCA0TXBUF ! ;
+: >midi
+  txbuffer >ring   \ Right buffer
+  $02 UCA0IE cbis! \ enable TX interupt
+;
 
-: midi> UCA0RXBUF @ ;
+\ : midi>
+\   UCA0RXBUF @
+\ ;
 
 : midi_handler
-  \ drop sysex messages for now, punt to output
-  midi> dup dup
-  $F8 = swap $FE = or if drop else dup hex. >midi then
+  \ Source of UART interrupt
+  UCA0IV @ case
+    $02 of \ Rx buffer ready
+      UCA0RXBUF @ >midi \ forward to output
+    endof
+    $04 of \ TX buffer ready
+       \ Send byte to UART TX buffer
+       txbuffer ring> UCA0TXBUF !
+       \ If buffer empty, disable TX interrupt
+       txbuffer ring# 0= if $02 UCA0IE cbic! then
+    endof
+  endcase
 ;
 
 : init_midi
+  \ TX Buffer
+  txbuffer 32 init-ring
+
   OUTMODE-SP0 midiRx io-mode!
   OUTMODE-SP0 midiTX io-mode!
   $0001 UCA0CTLW0 cbis!         \ Reset state machine
@@ -50,13 +67,13 @@ compiletoflash
 ;
 
 : my_init
-  init_midi
+   init_midi
 ;
 
-: note_on  $90 >midi 500 us >midi 500 us $7A >midi ;
-: note_off $90 >midi 500 us >midi 500 us 0 >midi ;
+: note_on  $90 >midi >midi $7A >midi ;
+: note_off $90 >midi >midi 0 >midi ;
 : note dup note_on 500 ms note_off ;
-
+: multi_test 60 swap - dup 60 swap do i note_on loop 500 ms 60 swap do i note_off loop ;
 : Hz 62500 swap  u/mod swap drop 3 lshift ;
 
 : >Speaker TA1CCR0 ! ;
