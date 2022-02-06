@@ -15,7 +15,7 @@ compiletoflash
 2 0 io constant audioOut
 1 6 io constant midiRx
 1 7 io constant midiTx
-32 4 + buffer: txbuffer
+64 4 + buffer: txbuffer
 
 : init_cv
   OUTMODE-SP0 audioOut io-mode!
@@ -52,7 +52,7 @@ compiletoflash
 
 : init_midi
   \ TX Buffer
-  txbuffer 32 init-ring
+  txbuffer 64 init-ring
 
   OUTMODE-SP0 midiRx io-mode!
   OUTMODE-SP0 midiTX io-mode!
@@ -74,6 +74,10 @@ compiletoflash
 : note_off $90 >midi >midi 0 >midi ;
 : note dup note_on 500 ms note_off ;
 : multi_test 60 swap - dup 60 swap do i note_on loop 500 ms 60 swap do i note_off loop ;
+: prg $C0 >midi >midi ;
+: prg_cycle 127 1 do i prg 60 note loop ;
+
+
 : Hz 62500 swap  u/mod swap drop 3 lshift ;
 
 : >Speaker TA1CCR0 ! ;
