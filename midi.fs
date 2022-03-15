@@ -4,7 +4,10 @@ compiletoflash
 
 \ Timer_A0
 \res export TA1CTL TA1CCTL0 TA1CCTL1 TA1CCR0 TA1CCR1 TA1EX0
+\ Serial Port
 \res export UCA0CTLW0 UCA0BRW UCA0MCTLW UCA0IE UCA0IFG UCA0IV UCA0RXBUF UCA0TXBUF
+\ SAC/DAC
+\res export PMMCTL2 SAC0OA SAC0PGA SAC0DAC SAC0DAT SAC0DATSTS SAC0IV
 
 #include ms.fs
 #include digital-io.fs
@@ -13,6 +16,8 @@ compiletoflash
 \ Project pin assignments
 
 2 0 io constant audioOut
+1 1 io constant dacOut
+
 1 6 io constant midiRx
 1 7 io constant midiTx
 64 4 + buffer: txbuffer
@@ -24,6 +29,28 @@ compiletoflash
   $0007 TA1EX0 !   \ Divide by a further 8
   $0FFF TA1CCR0 !  \ TAxCCR0 At 1Mhz -> 20ms
   $0001 TA1CCR1 !  \ Just need a value here for toggle to work
+;
+
+: init_dac
+  ANALOGMODE dacOut io-mode!
+  $0021 PMMCTL2 !  \ Enbale internal voltage reference 2.5v
+  $0099 SAC0OA !   \ Reference DAC with PGA
+  $0001 SAC0PGA !  \ No gain buffer PGA
+  $1001 SAC0DAC !  \ internal voltage reference / enable dac
+  $0100 SAC0OA bis! \ Enable OA
+  $0400 SAC0OA bis! \ Enable SAC
+;
+
+: .sac
+  cr ." SAC0OA  " SAC0OA @ hex.
+  cr ." SAC0PGA " SAC0PGA @ hex.
+  cr ." SAC0DAC " SAC0DAC @ hex.
+  cr ." SAC0DAT " SAC0DAT @ hex.
+  cr
+;
+
+: >dac ( u -- )
+  SAC0DAT !
 ;
 
 : >midi
