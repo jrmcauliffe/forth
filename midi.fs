@@ -4,6 +4,9 @@ compiletoflash
 
 \ Timer_A0
 \res export TA1CTL TA1CCTL0 TA1CCTL1 TA1CCR0 TA1CCR1 TA1EX0
+\ Timer_A2
+\res export TA2CTL TA2CCTL0 TA2CCTL1 TA2CCR0 TA2CCR1 TA2EX0
+
 \ Serial Port
 \res export UCA0CTLW0 UCA0BRW UCA0MCTLW UCA0IE UCA0IFG UCA0IV UCA0RXBUF UCA0TXBUF
 \ SAC/DAC
@@ -12,24 +15,21 @@ compiletoflash
 #include ms.fs
 #include digital-io.fs
 #include ring.fs
+#include sintable.fs
 
 \ Project pin assignments
 
-2 0 io constant audioOut
+5 0 io constant audioOut
 1 1 io constant dacOut
 
 1 6 io constant midiRx
 1 7 io constant midiTx
 64 4 + buffer: txbuffer
 
-: init_cv
-  OUTMODE-SP0 audioOut io-mode!
-  $0210 TA1CTL !   \ SMCLK/8 up mode interrupts not enabled
-  $0080 TA1CCTL1 ! \ Toggle Mode / interrupts disabled
-  $0007 TA1EX0 !   \ Divide by a further 8
-  $0FFF TA1CCR0 !  \ TAxCCR0 At 1Mhz -> 20ms
-  $0001 TA1CCR1 !  \ Just need a value here for toggle to work
-;
+0 variable accumulator
+$FFF variable magic
+
+
 
 : init_dac
   ANALOGMODE dacOut io-mode!
@@ -52,6 +52,23 @@ compiletoflash
 : >dac ( u -- )
   SAC0DAT !
 ;
+
+: sample
+ accumulator @ magic @ + dup accumulator ! 6 rshift 1 lshift sintable + @ >dac
+ \ accumulator @ magic @ + dup accumulator ! 4 rshift  >dac
+;
+
+: init_sampler
+  OUTMODE-SP0 audioOut io-mode!
+  $0210 TA2CTL !   \ SMCLK/1 up mode interrupts not enabled
+  $0090 TA2CCTL0 ! \ Toggle Mode / interrupts enabled
+  $0000 TA2EX0 !   \ No further division
+  500 TA2CCR0 !    \ 8 kHz
+  \ 1 TA2CCR1 !      \ Just need a value here for toggle to work
+  ['] sample irq-timerc0 !
+;
+
+: sweep 5000 100 do i magic ! 1 ms loop  0 magic ! ;
 
 : >midi
   txbuffer >ring   \ Right buffer
@@ -94,7 +111,10 @@ compiletoflash
 ;
 
 : my_init
-   init_midi
+  \ init_midi
+  init_dac
+  init_sampler
+  eint
 ;
 
 : note_on  $90 >midi >midi $7A >midi ;
