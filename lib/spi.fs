@@ -27,13 +27,13 @@
   OUTMODE-LS  ISDATA io-mode!
 
   \ Reset UCS
-  UCSWRST UCB1CTL1 c!
+  UCSWRST UCB1CTL1 cbis!
   \ Use SMCLK for CLK
   $80 UCB1CTL1 cbis!
   \ SMCLK Full Speed
   $00 UCB1BR1 c! $00 UCB1BR0 c!
-  \ Rising sample / MSB / 8 bit / Master / 3 pin / Sync  
-  $A9 UCB1CTL0 c!
+  \ Rising sample / MSB / 8 bit / Master / 3 pin / async  
+  $A8 UCB1CTL0 c!
   \ Enable UCS
   UCSWRST UCB1CTL1 cbic!
 ;

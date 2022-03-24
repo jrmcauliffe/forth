@@ -14,59 +14,65 @@ compiletoflash
 
 256 Constant MAXITER
 
+\ fixpoint 8.8
+: >fp 8 lshift ;
+: f. dup $FF and 8 lshift swap 8 arshift 3 f.n ;
+: f* m* d2/ d2/ d2/ d2/ d2/ d2/ d2/ d2/ drop ;
+
 \ View of complex plane
-0 -2 2Constant IMIN \ -2.0
-0  2 2Constant IMAX \  2.0
-0 -3 2Constant RMIN \ -3.0
-0  2 2Constant RMAX \  2.0
+-2 >fp Constant IMIN \ -2.0
+ 2 >fp Constant IMAX \  2.0
+-3 >fp Constant RMIN \ -3.0
+ 2 >fp Constant RMAX \  2.0
 
 : zmap ( n1 n2 --  z) \ Map (row, col) to point in complex view z (r, i)
-  0 swap IMAX IMIN d- 0 COLS f/ f* IMIN d+ \ scale cols to imaginary component
-  rot 
-  0 swap RMAX RMIN d- 0 ROWS f/ f* RMIN d+ \ scale rows to real component
-  2SWAP
+  IMAX IMIN - COLS / * IMIN + \ scale cols to imaginary component
+  swap
+  RMAX RMIN - ROWS / * RMIN + \ scale rows to real component
+  swap
 ;
 
 : z+ ( z1 z2 -- z3 ) \ add two complex numbers
-  2rot d+ 2-rot d+ 2swap
+  rot + -rot + swap
 ;
 
 : zsquared  ( z1 -- z2 ) \ square a complex number (a + bi)(a + bi) = a*a - b*b + 2abi
-  2over 2dup f*  2over 2dup f* d-
-  2-rot f* d2*
+  over dup f*      \ a*a
+  over dup f*      \ b*b
+  -
+  -rot f* 1 lshift \ 2ab
 ;
 
 : zover ( z1 z2 -- z1 z2 z1 )
-  7 pick 7 pick 7 pick 7 pick
+  2over
 ;
- 
-: zdup 2over 2over ;
+
+: zdup 2dup  ;
 : fz ( z1 z2 -- z3 ) \ z c -> z*z + c
-  >r >r >r >r        \ push c to return stack
-  zsquared 
-  r> r> r> r>        \ pop c from return stack
+  2swap
+  zsquared
   z+
 ;
-: zdrop 2drop 2drop ;
-
+: zdrop 2drop ;
 : z. ( z -- ) \ print a complex number
-  2swap 3 f.n ." + " 3 f.n ." i"
+  swap f.  ." + " f. ." i"
 ;
 
 : escaped? ( z -- flag ) \ is absolute value of z > 2?
-  2dup f* 2swap 2dup f* d+ 0 4 d>
+  dup f* swap dup f* + 4 >fp >
 ;
 
 : mandel? ( z -- n) \ is this complex number in the mandelbrot set?
-  \ zdup          \ save copy of original point
-  0 0 0 0         \ Initial z
-  0         \ dummy value to be dropped below (instead of i after first pass)
+  0 0           \ Initial z
+  0                 \ dummy value to be dropped below (instead of i after first pass)
   MAXITER 0 do
-  drop
-  zdup escaped? if i leave then \ if escaped, put iterations on stack
-  zover fz       \ run iteration f(z) = z*z + c
-  i loop         \ leave i on top of stack
-  nip nip nip nip nip nip nip nip \ Get rid of last z and c values from stack leaving i
+    drop
+    zdup escaped?   \ If this iteration has escaped
+    if i leave then \ put iteration count on stack and leave
+    zover fz        \ Run iteration f(z) = z*z + c
+    i               \ leave i on top of stack in case final iteration
+  loop          
+  nip nip nip nip   \ Cleanyup last z and c values from stack leaving i
 ;
 
 : scale-colour ( n -- n ) \ scale number of iterations to greyscale shade (assume 565 colour)
