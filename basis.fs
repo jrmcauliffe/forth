@@ -42,6 +42,9 @@ compiletoflash
   decimal
 ; 
 
+: us 0 ?do [ $3C00 , $3C00 , ] loop ;
+: ms 0 ?do 998 us loop ;
+
 cornerstone Rewind-to-Basis
 
 \ Unlike ANS-Marker, the defined "Rewind-to-Basis" stays in Flash and doesn't remove itself upon invocation. 

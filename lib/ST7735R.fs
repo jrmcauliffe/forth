@@ -2,25 +2,29 @@
 #require digital-io.fs
 #require spi.fs
 
+\ configure additional pins required by ST7735 module
+OUTMODE-LS RESET  io-mode!
+OUTMODE-LS ISDATA io-mode!
+
 160  Constant ROWS
 128  Constant COLS 
 
 : lcd_cmd ( c n -- ) \ Hex command and number of arguments
   <builds , , align
   does>
-  CS io-0!            \ Enable
-  ISDATA io-0!        \ Swtch to command
-  dup cell+ @ >spi    \ Send command
-  CS io-1!            \ Disable
-    @ dup               \ Grab argument count and save a copy for cleanup
+  +spi
+  ISDATA io-0!         \ Swtch to command
+  dup cell+ @ >spi     \ Send command
+  -spi
+    @ dup              \ Grab argument count and save a copy for cleanup
   dup 0= if 2drop else \ skip if zero arg command
-    CS io-0!
-    ISDATA io-1!      \ Switch to data
-    1 swap do i pick  \ Send in reverse order
+    +spi
+    ISDATA io-1!       \ Switch to data
+    1 swap do i pick   \ Send in reverse order
       >spi
     -1 +loop
-    0 do drop loop    \ Cleanup Stack
-    CS io-1!            \ Disable
+    0 do drop loop     \ Cleanup Stack
+    -spi
   then
 ;
 
@@ -74,9 +78,9 @@ $2C 0 lcd_cmd RAMWR
   $00 $00 $00 $9F RASET
   RAMWR
   ISDATA io-1! 
-  CS io-0!
+  +spi
   ROWS COLS  * 0 do dup 8 rshift >spi dup >spi loop
-  CS io-1!
+  -spi
   drop
 ;
 
@@ -85,7 +89,7 @@ $2C 0 lcd_cmd RAMWR
   $00 swap 2dup RASET
   RAMWR
   ISDATA io-1!
-  CS io-0!
+  +spi
   dup 8 rshift >spi >spi
-  CS io-1!
+  -spi
 ;
