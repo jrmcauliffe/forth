@@ -29,7 +29,7 @@
 : spi-slow ( -- )
   \ Reset UCS
   UCSWRST UCB1CTL1 cbis!
-  00 UCB1BR1 c! 20 UCB1BR0 c! \ 8Mhz -> 400 kHz
+  00 UCB1BR1 c! 80 UCB1BR0 c! \ 8Mhz -> 100 kHz
   \ Enable UCS
   UCSWRST UCB1CTL1 cbic!
 ;
@@ -39,8 +39,8 @@
   UCSWRST UCB1CTL1 cbis!
   \ Use SMCLK for CLK
   $80 UCB1CTL1 cbis!
-  \ SMCLK Full Speed
-  00 UCB1BR1 c! 00 UCB1BR0 c!
+  \ SMCLK/2 Full Speed
+  00 UCB1BR1 c! 08 UCB1BR0 c!
   \ Mode 0 / MSB / 8 bit / Master / 3 pin / sync
   $A9 UCB1CTL0 c!
 
