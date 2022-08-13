@@ -12,11 +12,57 @@ compiletoflash
 
 #include ms.fs
 #include digital-io.fs
-
 \ Project pin assignments
 
 1 0 io constant adcIn
 1 1 io constant dacOut
+
+\ ------------------------------------
+\ SPI Functions
+\ ------------------------------------
+
+\ Use UCB1
+\res export UCB1CTLW0 UCB1TXBUF UCB1RXBUF UCB1BRW UCB1STATW
+
+3 4 io CONSTANT RESET
+4 4 io CONSTANT CS
+4 5 io CONSTANT SCLK
+4 6 io CONSTANT MOSI
+3 0 io CONSTANT ISDATA
+
+:  >spi> ( c -- c )
+  begin $0001 UCB1STATW bit@ 0= until
+  UCB1TXBUF c!
+  begin $0001 UCB1STATW bit@ 0= until
+  UCB1RXBUF c@
+;
+
+: spi> ( -- c ) \ read byte from SPI
+  $FF >spi>
+;
+
+: >spi ( c -- ) \ write byte to SPI
+  >spi> drop  
+;
+
+: +spi CS io-0! ;
+: -spi CS io-1! ;
+
+
+: init_spi ( -- )  \ set up hardware SPI
+  $0001 UCB1CTLW0 bis!          \ Reset UCS
+  $2983 UCB1CTLW0 !             \ Mode 0 / MSB / 8 bit / Master / 3 pin / sync,  Use SMCLK for CLK
+  $00FF UCB1BRW !               \ SMCLK/2 Full Speed
+  OUTMODE-SP0 MOSI  io-mode!
+  OUTMODE-HS CS     io-mode!
+  OUTMODE-SP0 SCLK  io-mode!
+  OUTMODE-HS RESET  io-mode!    \ RESET and ISDATA required for SH1106
+  OUTMODE-HS ISDATA io-mode!
+  CS io-1!
+  $0001 UCB1CTLW0 bic!          \ Enable UCS
+;
+
+#require SH1106.fs
 
 : init_dac ( -- )
   ANALOGMODE dacOut io-mode!
@@ -45,11 +91,12 @@ compiletoflash
   $0001 ADCIE bis!      \ enable interrupts
 
   \ Setup timer
+  \ OUTMODE-SP0 2 0 io io-mode!  \ Uncomment to test timer signal on p2.0
   $0210 TA1CTL !   \ SMCLK up mode, interrupts not enabled
   $0060 TA1CCTL0 ! \ Set/Reset Mode / interrupts disabled
   $00E0 TA1CCTL1 ! \ Set/Reset Mode / interrupts disabled
-  $0FFF TA1CCR0 !
-  $07FF TA1CCR1 !
+  $00FF TA1CCR0 !
+  $007F TA1CCR1 !
   ['] sample irq-adc !
 
   $0002 ADCCTL0 bis!   \ Enable ADC
@@ -58,6 +105,7 @@ compiletoflash
 : my_init
   init_dac
   init_adc
+  init_lcd
   eint
 ;
 
