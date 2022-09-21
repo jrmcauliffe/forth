@@ -60,16 +60,16 @@ $DB 1 lcd_cmd SETVCOMDESEL            \ CMD 18
 ;
 
 : writeBuffer ( -- ) \ send frambuffer to screen
-  PAGES 0 do
-    i SETPAGEADD    
-    -spi 
     ISDATA io-1! 
     +spi
-    128 0 do
-      0 >spi
+    PAGES 0 do
+      i . cr
+      i SETPAGEADD
+      132 0 do
+        0 >spi
+      loop
+      -spi
     loop
-    -spi
-  loop
 ;
 
 : init_lcd
@@ -82,9 +82,9 @@ $DB 1 lcd_cmd SETVCOMDESEL            \ CMD 18
   0 HCOL
   3 SETPUMPV      \ 9v
   0 SETSTARTLINE
-  0 SETPAGEADD                    \ Page address 0
+  2 SETPAGEADD                    \ Page address 0
   $80 SETCONTRAST
-  0 SETSEGREMAP  
+  1 SETSEGREMAP  
   0 SETINVERSEDISPLAY
   $3F SETMULTIPLEXRATIO
   $14 SETCHARGEPUMP

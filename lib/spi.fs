@@ -45,7 +45,7 @@
   $A9 UCB1CTL0 c!
 
   OUTMODE-SP2 MOSI io-mode!
-  OUTMODE-SP2 MISO io-mode!
+\  OUTMODE-SP2 MISO io-mode!
   OUTMODE-HS  CS   io-mode!
   OUTMODE-SP2 SCLK io-mode!
   -spi
