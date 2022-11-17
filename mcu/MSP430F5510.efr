@@ -438,6 +438,7 @@
 063C equ UCB1I2CIE
 
 062A equ UCB1STAT  \ USCI_Bx Status Register
+         BIT0 equ UCBUSY
 
 062C equ UCB1RXBUF
 062E equ UCB1TXBUF
