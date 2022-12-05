@@ -76,6 +76,17 @@
 012A equ PMMIFG
 0130 equ PM5CTL0
 
+\ Clock System
+
+0180 equ CSCTL0
+0182 equ CSCTL1
+0184 equ CSCTL2
+0186 equ CSCTL3
+0188 equ CSCTL4
+018A equ CSCTL5
+018C equ CSCTL6
+018E equ CSCTL7
+0190 equ CSCTL8
 
 \ Port Offsets
 
