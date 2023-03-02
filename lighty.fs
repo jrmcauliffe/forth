@@ -40,10 +40,12 @@ origLightLevel variable lightLevel                \ The system 'dimmed' value fo
 1 1 io constant pBlue
 1 4 io constant pGreen
 1 5 io constant pRed
-2 0 io constant pRotary1
-2 1 io constant pRotary2
-2 2 io constant pButton
-
+\ 2 0 io constant pRotaryA1
+\ 2 1 io constant pRotaryA2
+\ 2 2 io constant pButtonA
+2 3 io constant pRotaryA1
+2 4 io constant pRotaryA2
+2 7 io constant pButtonA
 
 : writeColor ( r g b -- )
   TA0CCR1 !
@@ -56,7 +58,7 @@ origLightLevel variable lightLevel                \ The system 'dimmed' value fo
 \ TODO Can we get more clever with p3 debounce check?
 : debounce-tick-interrupt-handler
   \ If button clicked, return light to known value
-  buttonstate @ shl pButton io@ or debounce_mask or dup buttonstate !
+  buttonstate @ shl pButtonA io@ or debounce_mask or dup buttonstate !
   debounce_check = if
     lightLevel @ 0= if               \ Light is off, revert back to original
       origLightLevel lightLevel !    \ Back to default light level
@@ -67,8 +69,8 @@ origLightLevel variable lightLevel                \ The system 'dimmed' value fo
   then
 
   \ Record state of encoder switches
-  r1state @ shl pRotary1 io@ or debounce_mask or dup r1state !
-  r2state @ shl pRotary2 io@ or debounce_mask or dup r2state !
+  r1state @ shl pRotaryA1 io@ or debounce_mask or dup r1state !
+  r2state @ shl pRotaryA2 io@ or debounce_mask or dup r2state !
   2dup
   debounce_check = swap debounce_mask = and
   -rot swap
@@ -101,9 +103,9 @@ origLightLevel variable lightLevel                \ The system 'dimmed' value fo
   OUTMODE-SP1 pRed     io-mode! \ Red channel
   OUTMODE-SP1 pGreen   io-mode! \ Green channel
   OUTMODE-SP1 pBlue    io-mode! \ Blue channel
-  INMODE-PU   pButton  io-mode! \ Rotary Pushbutton
-  INMODE-PU   pRotary1 io-mode! \ Rotary Quadrature Enc 1
-  INMODE-PU   pRotary2 io-mode! \ Rotary Quadrature Enc 2
+  INMODE-PU   pButtonA  io-mode! \ Rotary Pushbutton
+  INMODE-PU   pRotaryA1 io-mode! \ Rotary Quadrature Enc 1
+  INMODE-PU   pRotaryA2 io-mode! \ Rotary Quadrature Enc 2
 
   \ Timer A0/A1 for running PWM Lamp / LED dimming duty
   $0008             TA0CTL bis!  \ Set TACLR to clear timer
