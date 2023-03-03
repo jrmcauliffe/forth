@@ -78,17 +78,17 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 ;
 
 : closeChannel ( timer lvl -- )                       \ Close in on desired value to avoid abrupt light level changes
-  \ swap dup rot                                        \ Save a copy of the timer CCR address for later
+  swap dup rot                                        \ Save a copy of the timer CCR address for later
   @ dup * swap @                                      \ Calculate the desired CCR by squaring desired level
   dup -rot - 3 arshift                                \ Find the difference and then divide this by 2^3 (8)
   dup 0= if drop                                      \ if 0 then we're close enough to assume the desired value
-  else + then                                         \ otherwise add offset to close in on desired CCR value
+  else + then swap !                                  \ otherwise add offset to close in on desired CCR value
 ;
 
 : closeIn ( -- )
-  rTimer rLightLevel closeChannel rTimer !
-  gTimer gLightLevel closeChannel gTimer !
-  bTimer bLightLevel closeChannel bTimer !
+  rTimer rLightLevel closeChannel
+  gTimer gLightLevel closeChannel
+  bTimer bLightLevel closeChannel
 ;
 
 ' light-      variable aleft                          \ Default functions called by debounce handler for rotary encoder buttons a & b
