@@ -17,7 +17,7 @@ compiletoflash                                        \ Save to flash
 
 $0000           variable laststate
 200             constant d_ticks_per_sec              \ Number of debounce ticks in a second
-64              constant ticks_per_sec                \ Number of clock ticks in a second
+20              constant ticks_per_sec                \ Number of clock ticks in a second
 20              constant origLightLevel               \ Default light level on power on / resume from sleep
 600             constant timeoutSeconds               \ Timeout to off
 origLightLevel  variable rLightLevel                  \ The system 'dimmed' value for red light
@@ -52,11 +52,15 @@ rs              buffer:  ring                         \ Allocate space for Ring 
   $0042 RTCCTL bis!
 ;
                                                       \ FEATURE FUNCTIONS AND FUNCTION POINTERS
+: setLight ( step var -- )
+  dup -rot @ + clamp swap !
+;
+
 : setWhiteLight ( step -- )
   dup dup
-  rLightLevel @ + clamp rLightLevel !
-  gLightLevel @ + clamp gLightLevel !
-  bLightLevel @ + clamp bLightLevel !
+  rLightLevel setLight
+  gLightLevel setLight
+  bLightLevel setLight
 ;
 
 : light+ 2 setWhiteLight reset-rtc ;
