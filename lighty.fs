@@ -20,7 +20,12 @@ $0000           variable laststate
 64              constant ticks_per_sec                \ Number of clock ticks in a second
 20              constant origLightLevel               \ Default light level on power on / resume from sleep
 600             constant timeoutSeconds               \ Timeout to off
-origLightLevel  variable lightLevel                   \ The system 'dimmed' value for light
+origLightLevel  variable rLightLevel                  \ The system 'dimmed' value for red light
+origLightLevel  variable gLightLevel                  \ The system 'dimmed' value for green light
+origLightLevel  variable bLightLevel                  \ The system 'dimmed' value for blue light
+TA1CCR1         constant rTimer                       \ Red CCR register
+TA1CCR2         constant gTimer                       \ Green CCR register
+TA0CCR1         constant bTimer                       \ Blue CCR register
 
                                                       \ Create a circular buffer to debounce and test port samples
 0               variable rp                           \ Pointer to current ring buffer index
@@ -46,27 +51,44 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 : reset-rtc
   $0042 RTCCTL bis!
 ;
-
                                                       \ FEATURE FUNCTIONS AND FUNCTION POINTERS
-: setlight ( step -- )
-  lightLevel @ + clamp lightLevel !
+: setWhiteLight ( step -- )
+  dup dup
+  rLightLevel @ + clamp rLightLevel !
+  gLightLevel @ + clamp gLightLevel !
+  bLightLevel @ + clamp bLightLevel !
 ;
 
-: light+ 2 setlight reset-rtc ;
+: light+ 2 setWhiteLight reset-rtc ;
 
-: light- -2 setlight reset-rtc ;
+: light- -2 setWhiteLight reset-rtc ;
 
-: lightsout lightLevel @ 0=
-    if origLightLevel lightLevel ! reset-rtc
-    else 0 lightLevel !
+: lightsout rLightLevel @ gLightLevel @ and bLightLevel @ and 0=
+    if
+      origLightLevel dup dup
+      rLightLevel !
+      gLightLevel !
+      bLightLevel !
+      reset-rtc
+    else 0 dup dup
+      rLightLevel !
+      gLightLevel !
+      bLightLevel !
     then
 ;
 
-: closein                                             \ Close in on desired value to avoid abrupt light level changes
-  lightLevel @ dup * TA0CCR1 @                        \ Calculate the desired TA0CCR1 by squaring desired level
+: closeChannel ( timer lvl -- )                       \ Close in on desired value to avoid abrupt light level changes
+  \ swap dup rot                                        \ Save a copy of the timer CCR address for later
+  @ dup * swap @                                      \ Calculate the desired CCR by squaring desired level
   dup -rot - 3 arshift                                \ Find the difference and then divide this by 2^3 (8)
   dup 0= if drop                                      \ if 0 then we're close enough to assume the desired value
-  else + then dup dup writeColor                      \ otherwise add offset to close in on desired TA0CCR value
+  else + then                                         \ otherwise add offset to close in on desired CCR value
+;
+
+: closeIn ( -- )
+  rTimer rLightLevel closeChannel rTimer !
+  gTimer gLightLevel closeChannel gTimer !
+  bTimer bLightLevel closeChannel bTimer !
 ;
 
 ' light-      variable aleft                          \ Default functions called by debounce handler for rotary encoder buttons a & b
@@ -99,7 +121,7 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 ;
 
 : rtc-interrupt-handler
-  0 lightLevel !                                      \ Lights out
+  0 dup dup rLightLevel ! bLightLevel ! gLightLevel ! \ Lights out
   RTCIV @ drop                                        \ Clear interrupt
   2 RTCCTL bic!                                       \ Disable interrupt
 ;
