@@ -9,43 +9,25 @@ compiletoflash
 \res export TA3CTL TA3CCTL0 TA3CCR0
 \res export RTCCTL RTCIV RTCMOD RTCCNT
 
-#include ms.fs
-#include digital-io.fs
+\ PORT Configuration
+\res export P1DIR P1SEL0 P1SEL1 P2OUT P2DIR P2REN
 
 \ Debounce status tracking variables & constants
 \ see http://www.ganssle.com/debouncing.htm for details
 \ Real work is done in the tick-interrupt-handler
-$0 variable buttonstate                                    \ Encoder bounce tracker
-$0 variable r1state                                        \ Encoder rotation 1 tracker
-$0 variable r2state                                        \ Encoder rotation 2 tracker
+$0000 variable laststate
 250 constant d_ticks_per_sec                               \ Number of debounce ticks in a second
 64 constant ticks_per_sec                                  \ Number of clock ticks in a second
-8 constant debounce_ms                                     \ Settle time for switch debounce
-debounce_ms 1000 d_ticks_per_sec / / constant debounce_ticks \ Settle time in ticks
-$FFFF debounce_ticks 1 - lshift    constant debounce_check \ Constant for tracking debounce
-debounce_check shl                 constant debounce_mask  \ Constant for tracking debounce
-
-\ State Variables
-\ Swoles
 20 constant origLightLevel
 600 constant timeoutSeconds
-
-\ Bear
-\ 50 constant origLightLevel
-\ 1800 constant timeoutSeconds
-
 origLightLevel variable lightLevel                \ The system 'dimmed' value for light
 
-\ MCU  pin assignments
-1 1 io constant pBlue
-1 4 io constant pGreen
-1 5 io constant pRed
-\ 2 0 io constant pRotaryA1
-\ 2 1 io constant pRotaryA2
-\ 2 2 io constant pButtonA
-2 3 io constant pRotaryA1
-2 4 io constant pRotaryA2
-2 7 io constant pButtonA
+\ circular buffer to store debounce and test port samples
+0 variable rp
+4 constant rs
+rs buffer: ring
+: >ring ring rp @ + c! rp @ 1+ rs 1- and rp ! ;
+: ringand $FF ring rs + ring do i c@ and loop ;
 
 : writeColor ( r g b -- )
   TA0CCR1 !
@@ -55,32 +37,20 @@ origLightLevel variable lightLevel                \ The system 'dimmed' value fo
 \ Fix value between max and min values
 : clamp 90 min 0 max ;
 
-\ TODO Can we get more clever with p3 debounce check?
 : debounce-tick-interrupt-handler
-  \ If button clicked, return light to known value
-  buttonstate @ shl pButtonA io@ or debounce_mask or dup buttonstate !
-  debounce_check = if
-    lightLevel @ 0= if               \ Light is off, revert back to original
-      origLightLevel lightLevel !    \ Back to default light level
-    else
-      0 lightLevel !                 \ Otherwise button press is off
-    then
-    $0042 RTCCTL bis!                \ Reset countdown timer and enable interrupts
-  then
+  $0201 c@ not $9F and >ring \ read input port and write to buffer skip uart pins and invert
+  ringand laststate @ 2dup not and
+  case
+    1 of 3 and 0= if ." encoder a left" cr then endof
+    2 of 3 and 0= if ." encoder a right" cr then endof
+    4 of drop ." button a pressed " cr endof
+    8 of 24 and 0= if ." encoder b left" cr then endof
+    16 of 24 and 0= if ." encoder b right" cr then endof
+    128 of drop ." button b pressed " cr endof
+    drop
+   endcase
 
-  \ Record state of encoder switches
-  r1state @ shl pRotaryA1 io@ or debounce_mask or dup r1state !
-  r2state @ shl pRotaryA2 io@ or debounce_mask or dup r2state !
-  2dup
-  debounce_check = swap debounce_mask = and
-  -rot swap
-  debounce_check = swap debounce_mask = and
-
-  \ Are we turning left or right? Update the desired light level
-  \ Turn Right
-  if lightLevel @ 2+ clamp lightLevel ! $0042 RTCCTL bis! then
-  \ Turn Left
-  if lightLevel @ 2- clamp lightLevel ! $0042 RTCCTL bis! then
+  laststate !
 ;
 
 : clock-tick-interrupt-handler
@@ -99,13 +69,12 @@ origLightLevel variable lightLevel                \ The system 'dimmed' value fo
 ;
 
 : myinit \ ( -- )
-  \ Configure pins for io
-  OUTMODE-SP1 pRed     io-mode! \ Red channel
-  OUTMODE-SP1 pGreen   io-mode! \ Green channel
-  OUTMODE-SP1 pBlue    io-mode! \ Blue channel
-  INMODE-PU   pButtonA  io-mode! \ Rotary Pushbutton
-  INMODE-PU   pRotaryA1 io-mode! \ Rotary Quadrature Enc 1
-  INMODE-PU   pRotaryA2 io-mode! \ Rotary Quadrature Enc 2
+  \ Port 1, Bits 1,4 & 5 are the blue, green & red channels driven by the timers
+  $32 DUP DUP P1DIR cbis! P1SEL0 cbic! P1SEL1 cbis!
+
+  \ Port 2, Bits - 0, 1, 2, 3, 4, & 7 are for the encoders, 5 & 6 used by uart so don't change
+  \ Set these bits as input with internal pullup
+  $9F dup dup P2OUT cbis! P2DIR cbic! P2REN cbis!
 
   \ Timer A0/A1 for running PWM Lamp / LED dimming duty
   $0008             TA0CTL bis!  \ Set TACLR to clear timer
