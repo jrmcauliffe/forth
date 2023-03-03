@@ -17,7 +17,7 @@ compiletoflash                                        \ Save to flash
 
 $0000           variable laststate
 200             constant d_ticks_per_sec              \ Number of debounce ticks in a second
-20              constant ticks_per_sec                \ Number of clock ticks in a second
+64              constant ticks_per_sec                \ Number of clock ticks in a second
 20              constant origLightLevel               \ Default light level on power on / resume from sleep
 600             constant timeoutSeconds               \ Timeout to off
 origLightLevel  variable rLightLevel                  \ The system 'dimmed' value for red light
@@ -55,6 +55,7 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 : setLight ( step var -- )
   dup -rot @ + clamp swap !
 ;
+
 
 : setWhiteLight ( step -- )
   dup dup
@@ -101,22 +102,21 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 ' light-      variable bleft
 ' light+      variable bright
 ' lightsout   variable bbutton
-
+' nop         variable donothing
 ' closein     variable tick                           \ Default function called by tick handler
-
 
 : debounce-tick-interrupt-handler                     \ See http://www.ganssle.com/debouncing.htm
   P2IN c@ not $9F and >ring                           \ Read input port skipping uart pins (5 & 6), invert and write to buffer
   ringAnd laststate @ 2dup not and                    \ Check what's changed from 0->1, copy previous state for rotary encoders
   case                                                \ Call correct function for each input if triggered
-    1   of 3 and 0= if aleft @ execute then endof     \ Encoder A Left 
+    1   of 3 and 0= if aleft @ execute then endof     \ Encoder A Left
     2   of 3 and 0= if aright @ execute then endof    \ Encoder A Right
     4   of drop abutton @ execute endof               \ Encoder A Button
-    8   of 3 and 0= if bleft @ execute then endof     \ Encoder B Left
-    16  of 3 and 0= if bright @ execute then endof    \ Encoder B Right
+    8   of 24 and 0= if bleft @ execute then endof    \ Encoder B Left
+    16  of 24 and 0= if bright @ execute then endof   \ Encoder B Right
     128 of drop bbutton @ execute endof               \ Encoder B Button
     drop
-   endcase
+  endcase
   laststate !                                         \ Push current state to last state
 ;
 
