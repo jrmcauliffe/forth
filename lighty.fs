@@ -15,9 +15,9 @@ compiletoflash                                        \ Save to flash
 \res export P1DIR P1SEL0 P1SEL1
 \res export P2IN P2OUT P2DIR P2REN
 
-\ Temporary hack for 16MHZ
-: us 0 ?do [ $3C00 , $3C00 , ] loop ;
-: ms 0 ?do 1998 us loop ;
+\ 16MHZ
+: us 0 ?do [ $3C00 , $3C00 , $3C00 , $3C00 , $3C00 , $3C00 , ] loop ;
+: ms 0 ?do 998 us loop ;
 
 $0000           variable laststate
 200             constant d_ticks_per_sec              \ Number of debounce ticks in a second
