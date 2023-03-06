@@ -15,6 +15,10 @@ compiletoflash                                        \ Save to flash
 \res export P1DIR P1SEL0 P1SEL1
 \res export P2IN P2OUT P2DIR P2REN
 
+\ Temporary hack for 16MHZ
+: us 0 ?do [ $3C00 , $3C00 , ] loop ;
+: ms 0 ?do 1998 us loop ;
+
 $0000           variable laststate
 200             constant d_ticks_per_sec              \ Number of debounce ticks in a second
 64              constant ticks_per_sec                \ Number of clock ticks in a second
@@ -84,7 +88,7 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 
 : closeChannel ( timer lvl -- )                       \ Close in on desired value to avoid abrupt light level changes
   swap dup rot                                        \ Save a copy of the timer CCR address for later
-  @ dup * swap @                                      \ Calculate the desired CCR by squaring desired level
+  @ dup * 1 lshift swap @                             \ Calculate the desired CCR by squaring desired level and scale
   dup -rot - 3 arshift                                \ Find the difference and then divide this by 2^3 (8)
   dup 0= if drop                                      \ if 0 then we're close enough to assume the desired value
   else + then swap !                                  \ otherwise add offset to close in on desired CCR value
@@ -139,14 +143,14 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 
                                                       \ Timer A0/A1 for running PWM Lamp / LED dimming duty
   $0008 dup     TA0CTL  bis! TA1CTL bis!              \ Set TACLR to clear timer
-  $1FFF dup     TA0CCR0 !    TA1CCR0 !                \ Frequency
+  $3E80 dup     TA0CCR0 !    TA1CCR0 !                \ Divide 16MHZ down to 1khz led refresh frequency
   $0000 dup dup TA0CCR1 !    TA1CCR1 !   TA1CCR2 !    \ Lamp initial duty cycle (tick will move this to lightLevel)
   $00E0 dup dup TA0CCTL1 !   TA1CCTL1 !  TA1CCTL2 !
   $0210 dup     TA0CTL !     TA1CTL !                 \ SMCLK/1 Start in up mode
 
                                                       \ Timer A2 for switch debounce
   $2D0 TA2CTL !                                       \ SMCLK/8 - Up Mode
-  1000 d_ticks_per_sec / 1000 * TA2CCR0 !             \ trigger ever ticks_per_sec
+  1000 d_ticks_per_sec / 2000 * TA2CCR0 !             \ trigger ever ticks_per_sec
   $10  TA2CCTL0 !                                     \ Enable interupts
 
                                                       \ Timer A3 for updating lamp values
@@ -155,7 +159,7 @@ rs              buffer:  ring                         \ Allocate space for Ring 
   $10  TA3CCTL0 !                                     \ Enable interupts
 
                                                       \ RTC for timeout
-  $3302   RTCCTL !                                    \ VCLOCK / 1000 /w interrupts
+  $3302   RTCCTL !                                    \ VLOCLOCK / 1000 /w interrupts
   timeoutSeconds 10 * RTCMOD !                        \ 10 ticks per second
   $0040   RTCCTL bis!
 
