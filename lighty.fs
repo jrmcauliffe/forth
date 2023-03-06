@@ -149,8 +149,8 @@ rs              buffer:  ring                         \ Allocate space for Ring 
   $0210 dup     TA0CTL !     TA1CTL !                 \ SMCLK/1 Start in up mode
 
                                                       \ Timer A2 for switch debounce
-  $2D0 TA2CTL !                                       \ SMCLK/8 - Up Mode
-  1000 d_ticks_per_sec / 2000 * TA2CCR0 !             \ trigger ever ticks_per_sec
+  $290 TA2CTL !                                       \ SMCLK/4 - Up Mode
+  1000 d_ticks_per_sec / 1000 * TA2CCR0 !             \ trigger ever ticks_per_sec
   $10  TA2CCTL0 !                                     \ Enable interupts
 
                                                       \ Timer A3 for updating lamp values
