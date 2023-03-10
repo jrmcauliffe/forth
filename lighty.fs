@@ -24,9 +24,6 @@ $0000           variable laststate
 64              constant ticks_per_sec                \ Number of clock ticks in a second
 20              constant origLightLevel               \ Default light level on power on / resume from sleep
 600             constant timeoutSeconds               \ Timeout to off
-origLightLevel  variable rLightLevel                  \ The system 'dimmed' value for red light
-origLightLevel  variable gLightLevel                  \ The system 'dimmed' value for green light
-origLightLevel  variable bLightLevel                  \ The system 'dimmed' value for blue light
 TA1CCR1         constant rTimer                       \ Red CCR register
 TA1CCR2         constant gTimer                       \ Green CCR register
 TA0CCR1         constant bTimer                       \ Blue CCR register
@@ -35,6 +32,17 @@ TA0CCR1         constant bTimer                       \ Blue CCR register
 0               variable rp                           \ Pointer to current ring buffer index
 4               constant rs                           \ Size of Ring Buffer (power of 2)
 rs              buffer:  ring                         \ Allocate space for Ring buffer
+
+                                                      \ Variable with function to update
+: v ( default xt -- ) swap 2 nvariable ;              \ Allocate space for var and handler
+: v@ ( v -- n ) @ ;                                   \ Read a var
+: v! ( n v -- ) ! ;                                   \ Directly write to a var
+: v' ( n v -- )                                       \ Execute variable handler and writeback to variable
+  tuck                                                \ Save variable address for final write
+  dup @                                               \ Get current variable value
+  swap cell+ @                                        \ Get execution handler
+  execute swap !                                      \ Execute add write back to var
+;
 
 : ringzero ring rs + ring do 0 i c! loop ;            \ Write zeros to all elements in the ring buffer
 
@@ -52,41 +60,37 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 
 : clamp 90 min 0 max ;                                \ Fix value between max and min values
 
-: reset-rtc
-  $0042 RTCCTL bis!
-;
-                                                      \ FEATURE FUNCTIONS AND FUNCTION POINTERS
-: setLight ( step var -- )
-  dup -rot @ + clamp swap !
-;
+: reset-rtc $0042 RTCCTL bis! ;                       \ Restart countdown timer
 
+: nopFunc drop drop 0 ;                               \ Do nothing variable handler
 
-: setWhiteLight ( step -- )
-  dup dup
-  rLightLevel setLight
-  gLightLevel setLight
-  bLightLevel setLight
+: rotary ( isLeft currentVal -- newVal )              \ Rotary encoder variable handler
+  swap if 2- else 2+ then clamp
 ;
 
-: light+ 2 setWhiteLight reset-rtc ;
+: button ( newVal currentVal -- newVal ) drop ;       \ Button variable handler
 
-: light- -2 setWhiteLight reset-rtc ;
+20 ' rotary v vLightLevel
+false ' button v vLightsOut
+0 ' nopFunc v vNop
 
-: lightsout rLightLevel @ gLightLevel @ and bLightLevel @ and 0=
-    if
-      origLightLevel dup dup
-      rLightLevel !
-      gLightLevel !
-      bLightLevel !
+                                                      \ Assign variables to physical inputs
+vNop        constant vBA                              \ Pushbutton on encoder A
+vNop        constant vRA                              \ Encoder A
+vLightsOut  constant vBB                              \ Pushbutton on encoder B
+vLightLevel constant vRB                              \ Encoder B
+
+
+: lightsOut
+    vLightLevel v@ 0= if
+      origLightLevel
       reset-rtc
-    else 0 dup dup
-      rLightLevel !
-      gLightLevel !
-      bLightLevel !
-    then
+    else
+      0
+    then vLightLevel v!
 ;
 
-: closeChannel ( timer lvl -- )                       \ Close in on desired value to avoid abrupt light level changes
+: closeChannel ( timer lvlVar -- )                    \ Close in on desired value to avoid abrupt light level changes
   swap dup rot                                        \ Save a copy of the timer CCR address for later
   @ dup * 1 lshift swap @                             \ Calculate the desired CCR by squaring desired level and scale
   dup -rot - 3 arshift                                \ Find the difference and then divide this by 2^3 (8)
@@ -95,30 +99,27 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 ;
 
 : closeIn ( -- )
-  rTimer rLightLevel closeChannel
-  gTimer gLightLevel closeChannel
-  bTimer bLightLevel closeChannel
+  vLightsOut v@ if                                    \ Has the lightsout button been pressed?
+    lightsout false vLightsOut v!                     \ Run lightsout and clear value
+  then
+  rTimer vLightLevel closeChannel                     \ Close in on light level
+  gTimer vLightLevel closeChannel
+  bTimer vLightLevel closeChannel
 ;
 
-' light-      variable aleft                          \ Default functions called by debounce handler for rotary encoder buttons a & b
-' light+      variable aright
-' lightsout   variable abutton
-' light-      variable bleft
-' light+      variable bright
-' lightsout   variable bbutton
-' nop         variable donothing
 ' closein     variable tick                           \ Default function called by tick handler
 
 : debounce-tick-interrupt-handler                     \ See http://www.ganssle.com/debouncing.htm
   P2IN c@ not $9F and >ring                           \ Read input port skipping uart pins (5 & 6), invert and write to buffer
   ringAnd laststate @ 2dup not and                    \ Check what's changed from 0->1, copy previous state for rotary encoders
+  dup 0<> if reset-rtc then                           \ Any change reset timeout
   case                                                \ Call correct function for each input if triggered
-    1   of 3 and 0= if aleft @ execute then endof     \ Encoder A Left
-    2   of 3 and 0= if aright @ execute then endof    \ Encoder A Right
-    4   of drop abutton @ execute endof               \ Encoder A Button
-    8   of 24 and 0= if bleft @ execute then endof    \ Encoder B Left
-    16  of 24 and 0= if bright @ execute then endof   \ Encoder B Right
-    128 of drop bbutton @ execute endof               \ Encoder B Button
+    1   of 3 and 0= if true vRA v' then endof         \ Encoder A Left
+    2   of 3 and 0= if false vRA v' then endof        \ Encoder A Right
+    4   of drop true VBA v' endof                     \ Encoder A Button
+    8   of 24 and 0= if true vRB v' then endof        \ Encoder B Left
+    16  of 24 and 0= if false vRB v' then endof       \ Encoder B Right
+    128 of drop true vBB v' endof                     \ Encoder B Button
     drop
   endcase
   laststate !                                         \ Push current state to last state
@@ -129,7 +130,7 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 ;
 
 : rtc-interrupt-handler
-  0 dup dup rLightLevel ! bLightLevel ! gLightLevel ! \ Lights out
+  0 vLightLevel v!
   RTCIV @ drop                                        \ Clear interrupt
   2 RTCCTL bic!                                       \ Disable interrupt
 ;
