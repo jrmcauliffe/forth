@@ -28,11 +28,19 @@ TA1CCR1         constant rTimer                       \ Red CCR register
 TA1CCR2         constant gTimer                       \ Green CCR register
 TA0CCR1         constant bTimer                       \ Blue CCR register
 
-                                                      \ Create a circular buffer to debounce and test port samples
 0               variable rp                           \ Pointer to current ring buffer index
 4               constant rs                           \ Size of Ring Buffer (power of 2)
 rs              buffer:  ring                         \ Allocate space for Ring buffer
 
+: ringzero ring rs + ring do 0 i c! loop ;            \ Write zeros to all elements in the ring buffer
+
+: >ring ( c -- )
+   ring rp @ + c! rp @ 1+ rs 1- and rp !              \ Write a byte to the ring buffer and move pointer
+;
+
+: ringAnd ( -- c )
+  $FF ring rs + ring do i c@ and loop                 \ Logical and all elements in the ring buffer (for debounce)
+;
                                                       \ Variable with function to update
 : v ( default xt -- ) swap 2 nvariable ;              \ Allocate space for var and handler
 : v@ ( v -- n ) @ ;                                   \ Read a var
@@ -44,18 +52,21 @@ rs              buffer:  ring                         \ Allocate space for Ring 
   execute swap !                                      \ Execute add write back to var
 ;
 
-: ringzero ring rs + ring do 0 i c! loop ;            \ Write zeros to all elements in the ring buffer
-
-: >ring ( c -- )
-   ring rp @ + c! rp @ 1+ rs 1- and rp !              \ Write a byte to the ring buffer and move pointer
+: vgroup ( v1 v2 vn n -- vg )                         \ Set of variables for a function
+  <builds dup , 0 do , loop                           \ Allocate space for count and then each variable on build
+  does>                                               \ Return address of variable group on call
 ;
 
-: ringAnd ( -- c )
-  $FF ring rs + ring do i c@ and loop                 \ Logical and all elements in the ring buffer (for debounce)
-;
-
-: writeColor ( r g b -- )                             \ Update timers with correct RGB pwm signal
-  TA0CCR1 ! TA1CCR2 ! TA1CCR1 !
+: f ( xt vg -- r g b )                                \ Function to take vars and an xt return an rgb value
+  <builds
+  , ,                                                 \ Save var group and function xt
+  does>
+  dup cell+ @ swap                                    \ grab the xt and save on stack for the end
+  @ dup                                               \ memory address of vgroup with copy
+  @                                                   \ count of vars in group
+  swap cell+ dup rot cells +                          \ Start and end of memory address for vars
+  swap do i @ v@ swap 1 cells +loop                   \ Grab all the variable values keeping xt address TOS
+  execute                                             \ Run the function
 ;
 
 : clamp 90 min 0 max ;                                \ Fix value between max and min values
@@ -69,42 +80,56 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 ;
 
 : button ( newVal currentVal -- newVal ) drop ;       \ Button variable handler
+: modCount ( mod currentVal -- newval ) 1+ swap mod ; \ Looping counter variable handler
 
-20 ' rotary v vLightLevel
+20 ' rotary v vRLevel
+20 ' rotary v vGLevel
+20 ' rotary v vBLevel
+0  ' modCount v vNextVar
+
+vGLevel vBLevel vRLevel 3 vgroup vgRGB
+
 false ' button v vLightsOut
 0 ' nopFunc v vNop
 
-                                                      \ Assign variables to physical inputs
-vNop        constant vBA                              \ Pushbutton on encoder A
-vNop        constant vRA                              \ Encoder A
-vLightsOut  constant vBB                              \ Pushbutton on encoder B
-vLightLevel constant vRB                              \ Encoder B
+: passThru ( n n n -- n n n) ;
 
+' passThru vgRGB f fRGB
+
+vLightsOut  constant vBA                              \ Pushbutton on encoder A
+vNop        constant vRA                              \ Encoder A
+vNextVar    constant vBB                              \ Pushbutton on encoder B
+
+: vRB ( -- v )                                        \ Encoder B, dynamic based on Pushbutton B
+  vBB @ 1+ cells                                      \ Currently selected offset
+  vgRGB + @                                           \ Grab the correct variable from variable group
+;
 
 : lightsOut
-    vLightLevel v@ 0= if
+    vRLevel v@ 0= if
       origLightLevel
       reset-rtc
     else
       0
-    then vLightLevel v!
+    then vRLevel v!
 ;
 
-: closeChannel ( timer lvlVar -- )                    \ Close in on desired value to avoid abrupt light level changes
-  swap dup rot                                        \ Save a copy of the timer CCR address for later
-  @ dup * 1 lshift swap @                             \ Calculate the desired CCR by squaring desired level and scale
+: closeChannel ( lvl timer -- )                       \ Close in on desired value to avoid abrupt light level changes
+  dup rot                                             \ Save a copy of the timer CCR address for later
+  dup * 1 lshift swap @                               \ Calculate the desired CCR by squaring desired level and scale
   dup -rot - 3 arshift                                \ Find the difference and then divide this by 2^3 (8)
   dup 0= if drop                                      \ if 0 then we're close enough to assume the desired value
   else + then swap !                                  \ otherwise add offset to close in on desired CCR value
 ;
 
 : closeIn ( -- )
-  vLightsOut v@ if                                    \ Has the lightsout button been pressed?
-    lightsout false vLightsOut v!                     \ Run lightsout and clear value
-  then
-  rTimer vLightLevel closeChannel                     \ Close in on light level
-  gTimer vLightLevel closeChannel
-  bTimer vLightLevel closeChannel
+\  vLightsOut v@ if                                    \ Has the lightsout button been pressed?
+\    lightsout false vLightsOut v!                     \ Run lightsout and clear value
+\  then
+  fRGB
+  rTimer closeChannel                                  \ Close in on light level
+  gTimer closeChannel
+  bTimer closeChannel
 ;
 
 ' closein     variable tick                           \ Default function called by tick handler
@@ -119,7 +144,7 @@ vLightLevel constant vRB                              \ Encoder B
     4   of drop true VBA v' endof                     \ Encoder A Button
     8   of 24 and 0= if true vRB v' then endof        \ Encoder B Left
     16  of 24 and 0= if false vRB v' then endof       \ Encoder B Right
-    128 of drop true vBB v' endof                     \ Encoder B Button
+    128 of drop 3 vBB v' endof                        \ Encoder B Button
     drop
   endcase
   laststate !                                         \ Push current state to last state
@@ -130,7 +155,7 @@ vLightLevel constant vRB                              \ Encoder B
 ;
 
 : rtc-interrupt-handler
-  0 vLightLevel v!
+  0 vRLevel v!
   RTCIV @ drop                                        \ Clear interrupt
   2 RTCCTL bic!                                       \ Disable interrupt
 ;
