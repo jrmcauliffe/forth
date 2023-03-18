@@ -61,6 +61,9 @@ rs              buffer:  ring                         \ Allocate space for Ring 
   <builds
   , ,                                                 \ Save var group and function xt
   does>
+;
+
+: f' ( f -- r g b )
   dup cell+ @ swap                                    \ grab the xt and save on stack for the end
   @ dup                                               \ memory address of vgroup with copy
   @                                                   \ count of vars in group
@@ -82,27 +85,37 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 : button ( newVal currentVal -- newVal ) drop ;       \ Button variable handler
 : modCount ( mod currentVal -- newval ) 1+ swap mod ; \ Looping counter variable handler
 
+: passThru ( n n n -- n n n) ;
+: fanOut ( n --- n n n ) dup dup ;
+
+\ RGB Scheme
 20 ' rotary v vRLevel
 20 ' rotary v vGLevel
 20 ' rotary v vBLevel
-0  ' modCount v vNextVar
 
 vGLevel vBLevel vRLevel 3 vgroup vgRGB
+' passThru vgRGB f fRGB
+
+\ White Light Scheme
+20 ' rotary v vWLevel
+
+vWLevel 1 vgroup vgWhite
+' fanOut vgWhite f fWhite
+
+0  ' modCount v vNextVar
+
 
 false ' button v vLightsOut
 0 ' nopFunc v vNop
 
-: passThru ( n n n -- n n n) ;
-
-' passThru vgRGB f fRGB
-
+fWhite      variable fCurr
 vLightsOut  constant vBA                              \ Pushbutton on encoder A
 vNop        constant vRA                              \ Encoder A
 vNextVar    constant vBB                              \ Pushbutton on encoder B
 
 : vRB ( -- v )                                        \ Encoder B, dynamic based on Pushbutton B
   vBB @ 1+ cells                                      \ Currently selected offset
-  vgRGB + @                                           \ Grab the correct variable from variable group
+  vgWhite + @                                         \ Grab the correct variable from variable group
 ;
 
 : lightsOut
@@ -126,7 +139,7 @@ vNextVar    constant vBB                              \ Pushbutton on encoder B
 \  vLightsOut v@ if                                    \ Has the lightsout button been pressed?
 \    lightsout false vLightsOut v!                     \ Run lightsout and clear value
 \  then
-  fRGB
+  fCurr @ f'
   rTimer closeChannel                                  \ Close in on light level
   gTimer closeChannel
   bTimer closeChannel
@@ -144,7 +157,7 @@ vNextVar    constant vBB                              \ Pushbutton on encoder B
     4   of drop true VBA v' endof                     \ Encoder A Button
     8   of 24 and 0= if true vRB v' then endof        \ Encoder B Left
     16  of 24 and 0= if false vRB v' then endof       \ Encoder B Right
-    128 of drop 3 vBB v' endof                        \ Encoder B Button
+    128 of drop fCurr @ @ @ vBB v' endof              \ Encoder B Button
     drop
   endcase
   laststate !                                         \ Push current state to last state
