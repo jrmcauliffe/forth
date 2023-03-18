@@ -104,43 +104,44 @@ vWLevel 1 vgroup vgWhite
 
 0  ' modCount v vNextVar
 
+20 ' rotary v vGlobal                                 \ Global Illumination
 
 false ' button v vLightsOut
 0 ' nopFunc v vNop
 
 fWhite      variable fCurr
 vLightsOut  constant vBA                              \ Pushbutton on encoder A
-vNop        constant vRA                              \ Encoder A
+vGlobal     constant vRA                              \ Encoder A
 vNextVar    constant vBB                              \ Pushbutton on encoder B
 
 : vRB ( -- v )                                        \ Encoder B, dynamic based on Pushbutton B
   vBB @ 1+ cells                                      \ Currently selected offset
-  vgWhite + @                                         \ Grab the correct variable from variable group
+  fCurr @ @ + @                                       \ Grab the correct variable from variable group
 ;
 
 : lightsOut
-    vRLevel v@ 0= if
+    vGlobal v@ 0= if
       origLightLevel
       reset-rtc
     else
       0
-    then vRLevel v!
+    then vGlobal v!
 ;
 
 : closeChannel ( lvl timer -- )                       \ Close in on desired value to avoid abrupt light level changes
   dup rot                                             \ Save a copy of the timer CCR address for later
-  dup * 1 lshift swap @                               \ Calculate the desired CCR by squaring desired level and scale
+  vGlobal @ * 1 lshift swap @                         \ Calculate the desired CCR by scaling by global light level
   dup -rot - 3 arshift                                \ Find the difference and then divide this by 2^3 (8)
   dup 0= if drop                                      \ if 0 then we're close enough to assume the desired value
   else + then swap !                                  \ otherwise add offset to close in on desired CCR value
 ;
 
 : closeIn ( -- )
-\  vLightsOut v@ if                                    \ Has the lightsout button been pressed?
-\    lightsout false vLightsOut v!                     \ Run lightsout and clear value
-\  then
+  vLightsOut v@ if                                    \ Has the lightsout button been pressed?
+    lightsout false vLightsOut v!                     \ Run lightsout and clear value
+  then
   fCurr @ f'
-  rTimer closeChannel                                  \ Close in on light level
+  rTimer closeChannel                                 \ Close in on light level
   gTimer closeChannel
   bTimer closeChannel
 ;
@@ -168,7 +169,7 @@ vNextVar    constant vBB                              \ Pushbutton on encoder B
 ;
 
 : rtc-interrupt-handler
-  0 vRLevel v!
+  0 vGlobal v!
   RTCIV @ drop                                        \ Clear interrupt
   2 RTCCTL bic!                                       \ Disable interrupt
 ;
