@@ -56,21 +56,21 @@ rs              buffer:  ring                         \ Allocate space for Ring 
   does>                                               \ Return address of variable group on call
 ;
 
-: selected ( v g - n )                                \ Get the object in the group represented by the var
-  cell+ swap                                          \ Get address of group and skip size
+: selected ( v g - n )                                \ Get the object in the group indexed by the var
+  cell+ swap                                          \ Get address of group and skip size value
   @ cells + @                                         \ Add index of stored in variable and return
 ;
 
-: f ( xt vg -- r g b )                                \ Function to take var group and an xt return an rgb value
+: f ( xt vg -- )                                      \ Function to take var group and an xt return a (rgb) value
   <builds
   , ,                                                 \ Save var group and function xt
   does>                                               \ Return address of var group
 ;
 
-: f' ( f -- r g b )
-  dup cell+ @ swap                                    \ grab the xt and save on stack for the end
-  @ dup                                               \ memory address of vgroup with copy
-  @                                                   \ count of vars in group
+: f' ( f -- r g b )                                   \ Run a Function with associated variable values
+  dup cell+ @ swap                                    \ Grab the xt and save on stack for the end
+  @ dup                                               \ Memory address of group with copy
+  @                                                   \ Count of vars in group
   swap cell+ dup rot cells +                          \ Start and end of memory address for vars
   swap do i @ @ swap 1 cells +loop                    \ Grab all the variable values keeping xt address TOS
   execute                                             \ Run the function
@@ -92,12 +92,14 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 : passThru ( n n n -- n n n) ;
 : fanOut ( n --- n n n ) dup dup ;
 
+
+\ ##############################  Lighting Schemes  ##############################
+
                                                       \ RGB Scheme
 20 ' rotary v vRLevel                                 \ Variables to manually set R, G and B values
 20 ' rotary v vGLevel
 20 ' rotary v vBLevel
-
-vGLevel vBLevel vRLevel 3 group vgRGB
+vRLevel vGLevel vBLevel 3 group vgRGB
 ' passThru vgRGB f fRGB                               \ Directly pass through these values
 
                                                       \ White Light Scheme
@@ -105,19 +107,16 @@ vGLevel vBLevel vRLevel 3 group vgRGB
 vWLevel 1 group vgWhite
 ' fanOut vgWhite f fWhite                             \ Simple fanout function to copy same value to RGB
 
-
-
 fRGB fWhite 2 group myfunctions                       \ List of all functions to cycle through
 
-0  ' modCount v vVarIndex
+\ ##############################  Control Variables  ##############################
+
+0  ' modCount v vVarIndex                             \ Index of current variable in group
+0  ' modCount v vFuncIndex                            \ Index of current function in group
 20 ' rotary   v vGlobal                               \ Global Illumination
-0  ' modCount v vFuncIndex
 
-
-
-
-: fCurr vFuncIndex myfunctions selected ;             \ Return currently selected function
-: vCurr vVarIndex fCurr @ selected ;                  \ Return currently selected variable
+: fCurr vFuncIndex myfunctions selected ;             \ Address of currently selected function
+: vCurr vVarIndex fCurr @ selected ;                  \ Address of currently selected variable
 
 : closeChannel ( lvl timer -- )                       \ Close in on desired value to avoid abrupt light level changes
   dup rot                                             \ Save a copy of the timer CCR address for later
@@ -127,14 +126,14 @@ fRGB fWhite 2 group myfunctions                       \ List of all functions to
   else + then swap !                                  \ otherwise add offset to close in on desired CCR value
 ;
 
-: closeIn ( -- )
+\ ##############################  Interrupt Handlers  ##############################
+
+: clock-tick-interrupt-handler ( -- )
   fCurr f'                                            \ Run function against variables for RGB levels
   rTimer closeChannel                                 \ Close in on light level for each channel
   gTimer closeChannel
   bTimer closeChannel
 ;
-
-' closein     variable tick                           \ Default function called by tick handler
 
 : debounce-tick-interrupt-handler                     \ See http://www.ganssle.com/debouncing.htm
   P2IN c@ not $9F and >ring                           \ Read input port skipping uart pins (5 & 6), invert and write to buffer
@@ -153,10 +152,6 @@ fRGB fWhite 2 group myfunctions                       \ List of all functions to
   laststate !                                         \ Push current state to last state
 ;
 
-: clock-tick-interrupt-handler
-  tick @ execute
-;
-
 : rtc-interrupt-handler
   0 vGlobal !
   origLightLevel vWLevel !                            \ Set the scheme back to white light for restart
@@ -164,6 +159,8 @@ fRGB fWhite 2 group myfunctions                       \ List of all functions to
   RTCIV @ drop                                        \ Clear interrupt
   2 RTCCTL bic!                                       \ Disable interrupt
 ;
+
+\ ##############################  Initialisation  ##############################
 
 : myinit \ ( -- )
   $32 DUP DUP P1DIR cbis! P1SEL0 cbic! P1SEL1 cbis!   \ Port 1, Bits 1,4 & 5 are the blue, green & red channels driven by the timers
@@ -194,14 +191,14 @@ fRGB fWhite 2 group myfunctions                       \ List of all functions to
   timeoutSeconds 10 * RTCMOD !                        \ 10 ticks per second
   $0040   RTCCTL bis!
 
-  ringzero                                            \ Zero ring buffer used by debounce code
+  ringzero                                            \ Zero ring buffer used to debounce switches
 
                                                       \ Register interrupt handlers and enable interrupts
   ['] debounce-tick-interrupt-handler irq-timerc0 !   \ (C0 is mecrisp's confusing name for A2 main interrupt)
   ['] clock-tick-interrupt-handler irq-timerd0 !      \ (D0 is mecrisp's confusing name for A3 main interrupt)
   ['] rtc-interrupt-handler irq-rtc !                 \ RTC handler
 
-  eint                                                \ Enable interrupts and launch this puppy
+  eint                                                \ Enable interrupts
 ;
 
 
