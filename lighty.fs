@@ -43,8 +43,7 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 ;
                                                       \ Variable with function to update
 : v ( default xt -- ) swap 2 nvariable ;              \ Allocate space for var and handler
-: v@ ( v -- n ) @ ;                                   \ Read a var
-: v! ( n v -- ) ! ;                                   \ Directly write to a var
+
 : v' ( n v -- )                                       \ Execute variable handler and writeback to variable
   tuck                                                \ Save variable address for final write
   dup @                                               \ Get current variable value
@@ -52,15 +51,20 @@ rs              buffer:  ring                         \ Allocate space for Ring 
   execute swap !                                      \ Execute add write back to var
 ;
 
-: vgroup ( v1 v2 vn n -- vg )                         \ Set of variables for a function
+: group ( v1 v2 vn n -- vg )                          \ Set of variables for a function
   <builds dup , 0 do , loop                           \ Allocate space for count and then each variable on build
   does>                                               \ Return address of variable group on call
 ;
 
-: f ( xt vg -- r g b )                                \ Function to take vars and an xt return an rgb value
+: selected ( v g - n )                                \ Get the object in the group represented by the var
+  cell+ swap                                          \ Get address of group and skip size
+  @ cells + @                                         \ Add index of stored in variable and return
+;
+
+: f ( xt vg -- r g b )                                \ Function to take var group and an xt return an rgb value
   <builds
   , ,                                                 \ Save var group and function xt
-  does>
+  does>                                               \ Return address of var group
 ;
 
 : f' ( f -- r g b )
@@ -68,7 +72,7 @@ rs              buffer:  ring                         \ Allocate space for Ring 
   @ dup                                               \ memory address of vgroup with copy
   @                                                   \ count of vars in group
   swap cell+ dup rot cells +                          \ Start and end of memory address for vars
-  swap do i @ v@ swap 1 cells +loop                   \ Grab all the variable values keeping xt address TOS
+  swap do i @ @ swap 1 cells +loop                    \ Grab all the variable values keeping xt address TOS
   execute                                             \ Run the function
 ;
 
@@ -79,7 +83,7 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 : nopFunc drop drop 0 ;                               \ Do nothing variable handler
 
 : rotary ( isLeft currentVal -- newVal )              \ Rotary encoder variable handler
-  swap if 2- else 2+ then clamp
+  swap if 2- else 2+ then clamp                       \ Boolean input to determine direction, add or subtract then clamp
 ;
 
 : button ( newVal currentVal -- newVal ) drop ;       \ Button variable handler
@@ -88,45 +92,32 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 : passThru ( n n n -- n n n) ;
 : fanOut ( n --- n n n ) dup dup ;
 
-\ RGB Scheme
-20 ' rotary v vRLevel
+                                                      \ RGB Scheme
+20 ' rotary v vRLevel                                 \ Variables to manually set R, G and B values
 20 ' rotary v vGLevel
 20 ' rotary v vBLevel
 
-vGLevel vBLevel vRLevel 3 vgroup vgRGB
-' passThru vgRGB f fRGB
+vGLevel vBLevel vRLevel 3 group vgRGB
+' passThru vgRGB f fRGB                               \ Directly pass through these values
 
-\ White Light Scheme
-20 ' rotary v vWLevel
+                                                      \ White Light Scheme
+20 ' rotary v vWLevel                                 \ Single value for light level
+vWLevel 1 group vgWhite
+' fanOut vgWhite f fWhite                             \ Simple fanout function to copy same value to RGB
 
-vWLevel 1 vgroup vgWhite
-' fanOut vgWhite f fWhite
 
-0  ' modCount v vNextVar
 
-20 ' rotary v vGlobal                                 \ Global Illumination
+fRGB fWhite 2 group myfunctions                       \ List of all functions to cycle through
 
-false ' button v vLightsOut
-0 ' nopFunc v vNop
+0  ' modCount v vVarIndex
+20 ' rotary   v vGlobal                               \ Global Illumination
+0  ' modCount v vFuncIndex
 
-fWhite      variable fCurr
-vLightsOut  constant vBA                              \ Pushbutton on encoder A
-vGlobal     constant vRA                              \ Encoder A
-vNextVar    constant vBB                              \ Pushbutton on encoder B
 
-: vRB ( -- v )                                        \ Encoder B, dynamic based on Pushbutton B
-  vBB @ 1+ cells                                      \ Currently selected offset
-  fCurr @ @ + @                                       \ Grab the correct variable from variable group
-;
 
-: lightsOut
-    vGlobal v@ 0= if
-      origLightLevel
-      reset-rtc
-    else
-      0
-    then vGlobal v!
-;
+
+: fCurr vFuncIndex myfunctions selected ;             \ Return currently selected function
+: vCurr vVarIndex fCurr @ selected ;                  \ Return currently selected variable
 
 : closeChannel ( lvl timer -- )                       \ Close in on desired value to avoid abrupt light level changes
   dup rot                                             \ Save a copy of the timer CCR address for later
@@ -137,11 +128,8 @@ vNextVar    constant vBB                              \ Pushbutton on encoder B
 ;
 
 : closeIn ( -- )
-  vLightsOut v@ if                                    \ Has the lightsout button been pressed?
-    lightsout false vLightsOut v!                     \ Run lightsout and clear value
-  then
-  fCurr @ f'
-  rTimer closeChannel                                 \ Close in on light level
+  fCurr f'                                            \ Run function against variables for RGB levels
+  rTimer closeChannel                                 \ Close in on light level for each channel
   gTimer closeChannel
   bTimer closeChannel
 ;
@@ -153,12 +141,13 @@ vNextVar    constant vBB                              \ Pushbutton on encoder B
   ringAnd laststate @ 2dup not and                    \ Check what's changed from 0->1, copy previous state for rotary encoders
   dup 0<> if reset-rtc then                           \ Any change reset timeout
   case                                                \ Call correct function for each input if triggered
-    1   of 3 and 0= if true vRA v' then endof         \ Encoder A Left
-    2   of 3 and 0= if false vRA v' then endof        \ Encoder A Right
-    4   of drop true VBA v' endof                     \ Encoder A Button
-    8   of 24 and 0= if true vRB v' then endof        \ Encoder B Left
-    16  of 24 and 0= if false vRB v' then endof       \ Encoder B Right
-    128 of drop fCurr @ @ @ vBB v' endof              \ Encoder B Button
+    1   of 3 and 0= if true vGlobal v' then endof     \ Encoder A Left   - Decrese global light value
+    2   of 3 and 0= if false vGlobal v' then endof    \ Encoder A Right  - Increase global light value
+    4   of drop 0 vVarIndex !                         \ Encoder A Button - Reset Selected Var
+           myFunctions @ vFuncIndex v' endof          \                    Cycle to next function functions
+    8   of 24 and 0= if true vCurr v' then endof      \ Encoder B Left   - Decrease currently selected var
+    16  of 24 and 0= if false vCurr v' then endof     \ Encoder B Right  - Increase currently selected var
+    128 of drop fCurr @ @ vVarIndex v' endof          \ Encoder B Button - Cycle to next variable in group for current function
     drop
   endcase
   laststate !                                         \ Push current state to last state
@@ -169,7 +158,9 @@ vNextVar    constant vBB                              \ Pushbutton on encoder B
 ;
 
 : rtc-interrupt-handler
-  0 vGlobal v!
+  0 vGlobal !
+  origLightLevel vWLevel !                            \ Set the scheme back to white light for restart
+  0 vFuncIndex !
   RTCIV @ drop                                        \ Clear interrupt
   2 RTCCTL bic!                                       \ Disable interrupt
 ;
