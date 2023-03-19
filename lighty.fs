@@ -76,21 +76,19 @@ rs              buffer:  ring                         \ Allocate space for Ring 
   execute                                             \ Run the function
 ;
 
-: clamp 90 min 0 max ;                                \ Fix value between max and min values
+: clamp -rot max min ;                                \ Fix value between max and min values
 
 : reset-rtc $0042 RTCCTL bis! ;                       \ Restart countdown timer
 
-: nopFunc drop drop 0 ;                               \ Do nothing variable handler
-
 : rotary ( isLeft currentVal -- newVal )              \ Rotary encoder variable handler
-  swap if 2- else 2+ then clamp                       \ Boolean input to determine direction, add or subtract then clamp
+  swap if 2- else 2+ then 0 90 clamp                  \ Boolean input to determine direction, add or subtract then clamp
 ;
 
+: rotary2 ( isLeft currentVal -- newVal )             \ Rotary encoder variable handler
+  swap if 1- else 1+ then 64 + 64 mod                 \ Boolean input to determine direction, add or subtract then clamp
+;
 : button ( newVal currentVal -- newVal ) drop ;       \ Button variable handler
 : modCount ( mod currentVal -- newval ) 1+ swap mod ; \ Looping counter variable handler
-
-: passThru ( n n n -- n n n) ;
-: fanOut ( n --- n n n ) dup dup ;
 
 
 \ ##############################  Lighting Schemes  ##############################
@@ -100,14 +98,24 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 20 ' rotary v vGLevel
 20 ' rotary v vBLevel
 vRLevel vGLevel vBLevel 3 group vgRGB
+: passThru ( n n n -- n n n) ;
 ' passThru vgRGB f fRGB                               \ Directly pass through these values
 
                                                       \ White Light Scheme
 20 ' rotary v vWLevel                                 \ Single value for light level
 vWLevel 1 group vgWhite
+: fanOut ( n --- n n n ) dup dup ;
 ' fanOut vgWhite f fWhite                             \ Simple fanout function to copy same value to RGB
 
-fRGB fWhite 2 group myfunctions                       \ List of all functions to cycle through
+1 ' rotary2 v vColourSel
+vColourSel 1 group vgColourSel
+: colourSel ( n --- n n n )                           \ Simple colour values
+  3 0 do dup i 2* rshift 3 and 30 * swap loop drop
+;
+' colourSel vgColourSel f fColourSel
+
+
+fRGB fColourSel fWhite 3 group myfunctions            \ List of all functions to cycle through
 
 \ ##############################  Control Variables  ##############################
 
