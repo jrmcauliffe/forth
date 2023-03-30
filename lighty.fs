@@ -22,7 +22,7 @@ compiletoflash                                        \ Save to flash
 $0000           variable laststate
 200             constant d_ticks_per_sec              \ Number of debounce ticks in a second
 64              constant ticks_per_sec                \ Number of clock ticks in a second
-20              constant origLightLevel               \ Default light level on power on / resume from sleep
+4               constant origLightLevel               \ Default light level on power on / resume from sleep
 600             constant timeoutSeconds               \ Timeout to off
 TA1CCR1         constant rTimer                       \ Red CCR register
 TA1CCR2         constant gTimer                       \ Green CCR register
@@ -81,7 +81,7 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 : reset-rtc $0042 RTCCTL bis! ;                       \ Restart countdown timer
 
 : rotary ( isLeft currentVal -- newVal )              \ Rotary encoder variable handler
-  swap if 2- else 2+ then 0 90 clamp                  \ Boolean input to determine direction, add or subtract then clamp
+  swap if 1- else 1+ then 0 16 clamp                  \ Boolean input to determine direction, add or subtract then clamp
 ;
 
 : rotary2 ( isLeft currentVal -- newVal )             \ Rotary encoder variable handler
@@ -94,15 +94,15 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 \ ##############################  Lighting Schemes  ##############################
 
                                                       \ RGB Scheme
-20 ' rotary v vRLevel                                 \ Variables to manually set R, G and B values
-20 ' rotary v vGLevel
-20 ' rotary v vBLevel
+origLightLevel ' rotary v vRLevel                     \ Variables to manually set R, G and B values
+origLightLevel ' rotary v vGLevel
+origLightLevel ' rotary v vBLevel
 vRLevel vGLevel vBLevel 3 group vgRGB
 : passThru ( n n n -- n n n) ;
 ' passThru vgRGB f fRGB                               \ Directly pass through these values
 
                                                       \ White Light Scheme
-20 ' rotary v vWLevel                                 \ Single value for light level
+origLightLevel ' rotary v vWLevel                     \ Single value for light level
 vWLevel 1 group vgWhite
 : fanOut ( n --- n n n ) dup dup ;
 ' fanOut vgWhite f fWhite                             \ Simple fanout function to copy same value to RGB
@@ -110,7 +110,7 @@ vWLevel 1 group vgWhite
 1 ' rotary2 v vColourSel
 vColourSel 1 group vgColourSel
 : colourSel ( n --- n n n )                           \ Simple colour values
-  3 0 do dup i 2* rshift 3 and 30 * swap loop drop
+  3 0 do dup i 2* rshift 3 and 1+ 4 * swap loop drop  \ Split into 3 2 bit colours and scale 4 to 16
 ;
 ' colourSel vgColourSel f fColourSel
 
@@ -121,14 +121,14 @@ fRGB fColourSel fWhite 3 group myfunctions            \ List of all functions to
 
 0  ' modCount v vVarIndex                             \ Index of current variable in group
 0  ' modCount v vFuncIndex                            \ Index of current function in group
-20 ' rotary   v vGlobal                               \ Global Illumination
+4  ' rotary   v vGlobal                               \ Global Illumination
 
 : fCurr vFuncIndex myfunctions selected ;             \ Address of currently selected function
 : vCurr vVarIndex fCurr @ selected ;                  \ Address of currently selected variable
 
 : closeChannel ( lvl timer -- )                       \ Close in on desired value to avoid abrupt light level changes
   dup rot                                             \ Save a copy of the timer CCR address for later
-  vGlobal @ * 1 lshift swap @                         \ Calculate the desired CCR by scaling by global light level
+  vGlobal @ * dup * swap @                            \ Calculate the desired CCR by scaling by global light level
   dup -rot - 3 arshift                                \ Find the difference and then divide this by 2^3 (8)
   dup 0= if drop                                      \ if 0 then we're close enough to assume the desired value
   else + then swap !                                  \ otherwise add offset to close in on desired CCR value
@@ -151,7 +151,7 @@ fRGB fColourSel fWhite 3 group myfunctions            \ List of all functions to
     1   of 3 and 0= if true vGlobal v' then endof     \ Encoder A Left   - Decrese global light value
     2   of 3 and 0= if false vGlobal v' then endof    \ Encoder A Right  - Increase global light value
     4   of drop 0 vVarIndex !                         \ Encoder A Button - Reset Selected Var
-           myFunctions @ vFuncIndex v' endof          \                    Cycle to next function functions
+           myFunctions @ vFuncIndex v' endof          \ Cycle to next function functions
     8   of 24 and 0= if true vCurr v' then endof      \ Encoder B Left   - Decrease currently selected var
     16  of 24 and 0= if false vCurr v' then endof     \ Encoder B Right  - Increase currently selected var
     128 of drop fCurr @ @ vVarIndex v' endof          \ Encoder B Button - Cycle to next variable in group for current function
@@ -179,7 +179,7 @@ fRGB fColourSel fWhite 3 group myfunctions            \ List of all functions to
 
                                                       \ Timer A0/A1 for running PWM Lamp / LED dimming duty
   $0008 dup     TA0CTL  bis! TA1CTL bis!              \ Set TACLR to clear timer
-  $3E80 dup     TA0CCR0 !    TA1CCR0 !                \ Divide 16MHZ down to 1khz led refresh frequency
+  $FFFF dup     TA0CCR0 !    TA1CCR0 !                \ Divide 16MHZ down to 250(ish)hz led refresh frequency
   $0000 dup dup TA0CCR1 !    TA1CCR1 !   TA1CCR2 !    \ Lamp initial duty cycle (tick will move this to lightLevel)
   $00E0 dup dup TA0CCTL1 !   TA1CCTL1 !  TA1CCTL2 !
   $0210 dup     TA0CTL !     TA1CTL !                 \ SMCLK/1 Start in up mode
