@@ -93,6 +93,8 @@ rs              buffer:  ring                         \ Allocate space for Ring 
 
 \ ##############################  Lighting Schemes  ##############################
 
+0   variable t                                        \ Global Time reference for functions
+
                                                       \ RGB Scheme
 origLightLevel ' rotary v vRLevel                     \ Variables to manually set R, G and B values
 origLightLevel ' rotary v vGLevel
@@ -107,15 +109,23 @@ vWLevel 1 group vgWhite
 : fanOut ( n --- n n n ) dup dup ;
 ' fanOut vgWhite f fWhite                             \ Simple fanout function to copy same value to RGB
 
-1 ' rotary2 v vColourSel
+                                                      \ Discrete colour values
+1 ' rotary2 v vColourSel                              \ Single value to cycle through 64 colour shades (3 * 2 bit)
 vColourSel 1 group vgColourSel
-: colourSel ( n --- n n n )                           \ Simple colour values
+: colourSel ( n --- n n n )
   3 0 do dup i 2* rshift 3 and 1+ 4 * swap loop drop  \ Split into 3 2 bit colours and scale 4 to 16
 ;
 ' colourSel vgColourSel f fColourSel
 
+0 ' rotary v vCycleSpeed
+vCycleSpeed 1 group vgCycle
+: cycle ( n --- n n n )
+  t @ swap rshift $3F and colourSel
+;
+' cycle vgCycle f fCycle
 
-fRGB fColourSel fWhite 3 group myfunctions            \ List of all functions to cycle through
+
+fRGB fColourSel fCycle fWhite 4 group myfunctions     \ List of all functions to cycle through
 
 \ ##############################  Control Variables  ##############################
 
@@ -137,6 +147,7 @@ fRGB fColourSel fWhite 3 group myfunctions            \ List of all functions to
 \ ##############################  Interrupt Handlers  ##############################
 
 : clock-tick-interrupt-handler ( -- )
+  1 t +!                                              \ Time moves forward
   fCurr f'                                            \ Run function against variables for RGB levels
   rTimer closeChannel                                 \ Close in on light level for each channel
   gTimer closeChannel
