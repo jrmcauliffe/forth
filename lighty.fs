@@ -84,21 +84,22 @@ rs              buffer:  ring                         \ Allocate space for Ring 
   swap if 1- else 1+ then 0 16 clamp                  \ Boolean input to determine direction, add or subtract then clamp
 ;
 
-: rotary2 ( isLeft currentVal -- newVal )             \ Rotary encoder variable handler
-  swap if 1- else 1+ then 64 + 64 mod                 \ Boolean input to determine direction, add or subtract then clamp
-;
 : button ( newVal currentVal -- newVal ) drop ;       \ Button variable handler
 : modCount ( mod currentVal -- newval ) 1+ swap mod ; \ Looping counter variable handler
+
 
 
 \ ##############################  Lighting Schemes  ##############################
 
 0   variable t                                        \ Global Time reference for functions
+: rotary16 rotary 0 16 clamp ;                        \ Basic rotary clamped from 0-16
+: rotary8 rotary 0 8 clamp ;                          \ Basic rotary clamped from 0-8
+: continuous48 rotary 48 + 48 mod ;                   \ Continuous rotary cycler
 
                                                       \ RGB Scheme
-origLightLevel ' rotary v vRLevel                     \ Variables to manually set R, G and B values
-origLightLevel ' rotary v vGLevel
-origLightLevel ' rotary v vBLevel
+origLightLevel ' rotary16 v vRLevel                   \ Variables to manually set R, G and B values
+origLightLevel ' rotary16 v vGLevel
+origLightLevel ' rotary16 v vBLevel
 vRLevel vGLevel vBLevel 3 group vgRGB
 : passThru ( n n n -- n n n) ;
 ' passThru vgRGB f fRGB                               \ Directly pass through these values
@@ -110,22 +111,34 @@ vWLevel 1 group vgWhite
 ' fanOut vgWhite f fWhite                             \ Simple fanout function to copy same value to RGB
 
                                                       \ Discrete colour values
-1 ' rotary2 v vColourSel                              \ Single value to cycle through 64 colour shades (3 * 2 bit)
+1 ' continuous48 v vColourSel                         \ Single value to cycle through 48 colour shades
 vColourSel 1 group vgColourSel
 : colourSel ( n --- n n n )
-  3 0 do dup i 2* rshift 3 and 1+ 4 * swap loop drop  \ Split into 3 2 bit colours and scale 4 to 16
+  16 u/mod case
+    0 of dup 16 swap -  0 endof
+    1 of dup 16 swap -  0  -rot endof
+    2 of dup 16 swap -  0 rot endof
+    drop
+  endcase
 ;
 ' colourSel vgColourSel f fColourSel
 
-0 ' rotary v vCycleSpeed
+0 ' rotary8 v vCycleSpeed
 vCycleSpeed 1 group vgCycle
 : cycle ( n --- n n n )
-  t @ swap rshift $3F and colourSel
+  t @ swap rshift 48 mod colourSel
 ;
 ' cycle vgCycle f fCycle
 
+0 ' rotary16 v vPulseSpeed
+vPulseSpeed 1 group vgPulse
+: pulse t @ swap rshift $F and fanOut ;
+' pulse vgPulse f fPulse
 
-fRGB fColourSel fCycle fWhite 4 group myfunctions     \ List of all functions to cycle through
+
+fRGB fColourSel
+fPulse fCycle
+fWhite 5 group myfunctions                            \ List of all functions to cycle through
 
 \ ##############################  Control Variables  ##############################
 
