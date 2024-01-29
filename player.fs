@@ -43,11 +43,12 @@ $0 variable tuning
   OUTMODE-SP0 sampleOut io-mode! \ Enbable output on P5.0 to check sample rate
   $0210 TA2CTL !                 \ SMCLK/1 up mode interrupts not enabled
   $0090 TA2CCTL0 !               \ Toggle Mode / interrupts enabled
-  $0000 TA2EX0 !                 \ No further division
-  500 TA2CCR0 !                  \ 8 kHz
-  \ 1 TA2CCR1 !                  \ Just need a value here for toggle to work
+  $0002 TA2EX0 !                 \ 24MHz -> Divide by 3
+  1000 TA2CCR0 !                 \ 8 Mhz -> 8 KHz
   ['] sample irq-timerc0 !       \ Register interrupt handler
 ;
+
+: hz $FFFF 8000 u*/ ;
 
 : init_player
   init_dac
