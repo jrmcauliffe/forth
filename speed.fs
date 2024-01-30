@@ -4,7 +4,7 @@
 \ Serial Port for speed change
 \res export UCA1CTLW0 UCA1BRW UCA1MCTLW
 
- disable-fll ( -- ) [ $D032 , $0040 , ] inline ; \ Set   SCG0  Opcode bis #40, r2
+: disable-fll ( -- ) [ $D032 , $0040 , ] inline ; \ Set   SCG0  Opcode bis #40, r2
 : enable-fll  ( -- ) [ $C032 , $0040 , ] inline ;  \ Clear SCG0  Opcode bic #40, r2
 
 
